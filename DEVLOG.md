@@ -2,6 +2,11 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 99: Cycle help as a hover popover, refresh-icon footer
+- **Info hover now works**: `.help()` on the bare `info.circle` Image never registered a tooltip. The icon now takes a `contentShape(Rectangle())` plus `onHover` driving a `.popover(arrowEdge: .bottom)` that shows `InsightsView.helpText(for:)` at a readable width; `.help()` stays as a fallback.
+- **Footer**: "Updated: " replaced by an `arrow.clockwise` glyph beside the relative time, and a second `Divider()` separates that action row from the `AgentBar <build>` / Buy me a Coffee line. Footer spacing 3 -> 6.
+- All 327 tests passing
+
 ## Iteration 98: Insights column alignment, full weekday axis, reset wording
 - **Chart columns aligned**: `chartsSection(_:)` puts each chart in its own column with the title as the first row (`chartTitle(_:)`, fixed 12pt), so "Daily usage" and "Daily peak usage" share a baseline and both charts are `heatmapGridHeight` tall. The trend chart was also being rendered twice — once inside `heatmapSection` and once in the new column — which is fixed.
 - **Controls simplified**: The "Cycle" picker label is gone (`labelsHidden()`), leaving a bare Short/Long segmented toggle, and the explanatory paragraph folded into an `info.circle` hover carrying `InsightsView.helpText(for:)`.

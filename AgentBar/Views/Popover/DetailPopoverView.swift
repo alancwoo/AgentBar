@@ -55,7 +55,7 @@ struct DetailPopoverView: View {
     /// Single chrome strip: status on the left, actions on the right, with the
     /// build and support link on a subdued second line.
     private var footer: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 if let error = viewModel.lastError {
                     Label(error, systemImage: "exclamationmark.triangle")
@@ -63,9 +63,14 @@ struct DetailPopoverView: View {
                         .foregroundStyle(.orange)
                         .lineLimit(1)
                 } else {
-                    Text("Updated: \(relativeTimeString())")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10))
+                        Text(relativeTimeString())
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .help("Last refreshed")
                 }
 
                 Spacer(minLength: 8)
@@ -86,6 +91,8 @@ struct DetailPopoverView: View {
                     action: quit
                 )
             }
+
+            Divider()
 
             HStack(spacing: 6) {
                 Text("AgentBar \(Self.versionString)")

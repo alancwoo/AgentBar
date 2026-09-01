@@ -2,6 +2,7 @@ import SwiftUI
 
 struct InsightsView: View {
     @StateObject private var viewModel: UsageHistoryViewModel
+    @State private var isShowingCycleHelp = false
     private let heatmapTileSize: CGFloat = 12
     private let heatmapTileSpacing: CGFloat = 3
     private let heatmapRows = 7
@@ -68,9 +69,22 @@ struct InsightsView: View {
             .labelsHidden()
             .frame(width: 220)
 
+            // `.help` alone does not reliably register a tooltip on a bare
+            // Image, so the explanation is a hover popover instead.
             Image(systemName: "info.circle")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+                .onHover { hovering in
+                    isShowingCycleHelp = hovering
+                }
+                .popover(isPresented: $isShowingCycleHelp, arrowEdge: .bottom) {
+                    Text(Self.helpText(for: viewModel.selectedWindow))
+                        .font(.callout)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(width: 320, alignment: .leading)
+                        .padding(12)
+                }
                 .help(Self.helpText(for: viewModel.selectedWindow))
 
             Spacer()
