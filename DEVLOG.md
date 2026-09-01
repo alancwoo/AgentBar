@@ -2,6 +2,12 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 101: Balance the footer band, solid icon hover
+- **Action row band evened**: The first rule used `sectionSpacing` on both sides, so the action row sat 12pt below it but only 8pt above the next rule — reading as too much space above the refresh line. The rule now takes `sectionSpacing` on top and `footerSpacing` underneath, giving the whole footer band a consistent 8pt. Measured drop from 14pt to ~9pt between the rule and the glyphs.
+- **Hover chip no longer adds height**: the refresh button's highlight moved from `.padding` around the label to a negatively-inset `.background`, so the chip cannot push the row down.
+- **Icon hover state**: new `ActionIconButton` tracks its own hover and switches from `.secondary` to `.primary` — the full-contrast label colour, white on the dark popover — and the refresh label brightens the same way.
+- All 329 tests passing
+
 ## Iteration 100: Even popover padding and a clickable refresh status
 - **Padding made explicit**: The popover body switched from `VStack(spacing: 10)` + default `.padding()` to `spacing: 0` with `contentPadding` 14 on all four edges, `sectionSpacing` 12 above and below the main rule and `footerSpacing` 8 around the footer rule. `ServiceDetailRow` dropped its own `.padding(.vertical, 2)`, which had been adding to the list spacing and pushing the first row off the top inset. Measured: list at y=14/x=14/w=332 in a 360-wide popover, first rule at y=102.
 - **Refresh button**: The freshness line is now a plain-styled `Button` that calls `viewModel.fetchAllUsage()`, highlights on hover (`Color.primary.opacity(0.08)` rounded background via `onHover`), is disabled mid-fetch, and shows "Refreshing…" while `viewModel.isLoading` — see `refreshLabel(isLoading:relativeTime:)`.

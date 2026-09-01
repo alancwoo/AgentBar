@@ -46,7 +46,8 @@ struct DetailPopoverView: View {
             }
 
             Divider()
-                .padding(.vertical, Self.sectionSpacing)
+                .padding(.top, Self.sectionSpacing)
+                .padding(.bottom, Self.footerSpacing)
 
             actionRow
 
@@ -111,12 +112,14 @@ struct DetailPopoverView: View {
                 ))
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
+            .foregroundStyle(isHoveringRefresh ? Color.primary : Color.secondary)
             .background(
                 RoundedRectangle(cornerRadius: 4)
                     .fill(isHoveringRefresh ? Color.primary.opacity(0.08) : Color.clear)
+                    // Inflated rather than padded, so the chip cannot change
+                    // the row's height or its gap to the rule above.
+                    .padding(.horizontal, -5)
+                    .padding(.vertical, -3)
             )
             .contentShape(Rectangle())
         }
@@ -152,13 +155,7 @@ struct DetailPopoverView: View {
         help: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 13))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
-        .help(help)
+        ActionIconButton(systemImage: systemImage, help: help, action: action)
     }
 
     /// Service rows grow with their content and only scroll once they would
@@ -395,6 +392,30 @@ extension ServiceDetailRow {
         return stride(from: 0, to: all.count, by: maxChipsPerRow).map {
             Array(all[$0..<min($0 + maxChipsPerRow, all.count)])
         }
+    }
+}
+
+/// Footer icon that goes solid (full-contrast label colour — white on a dark
+/// popover) while the pointer is over it.
+struct ActionIconButton: View {
+    let systemImage: String
+    let help: String
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13))
+                .foregroundStyle(isHovering ? Color.primary : Color.secondary)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .help(help)
     }
 }
 
