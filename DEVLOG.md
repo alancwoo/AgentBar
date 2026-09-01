@@ -2,6 +2,14 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 98: Insights column alignment, full weekday axis, reset wording
+- **Chart columns aligned**: `chartsSection(_:)` puts each chart in its own column with the title as the first row (`chartTitle(_:)`, fixed 12pt), so "Daily usage" and "Daily peak usage" share a baseline and both charts are `heatmapGridHeight` tall. The trend chart was also being rendered twice — once inside `heatmapSection` and once in the new column — which is fixed.
+- **Controls simplified**: The "Cycle" picker label is gone (`labelsHidden()`), leaving a bare Short/Long segmented toggle, and the explanatory paragraph folded into an `info.circle` hover carrying `InsightsView.helpText(for:)`.
+- **Weekday axis always shown**: It was gated on `displayWindow == .primary`, so it vanished in the long cycle; `showsWeekdayAxis(for:)` was removed and the axis now renders for both. Every row is labelled with a single letter (`weekdayInitials`, Sunday-first to match the grid's `firstWeekday = 1`), each in a `heatmapTileSize`-tall frame with the tile spacing so letters line up with their row.
+- **Reset wording**: `MetricChip` now reads "· Resets in 1h48m" instead of "- 1h48m". Two of those no longer fit a 320pt line, so the popover widened to 360pt (`popoverWidth`), keeping two chips per row.
+- **Tests**: rewrote `InsightsViewTests` for the new axis and help text
+- All 327 tests passing
+
 ## Iteration 97: Legend chips, stacked bar tracks, leaner insights
 - **Reset icon removed**: The countdown no longer carries an `arrow.counterclockwise` glyph, and durations are compact (`1h49m`, `3d7h`).
 - **Legend chips**: `MetricRow` became `MetricChip` — a coloured dot, window label, percentage and time left, on one line under the service name. The dot colour keys each window to its track in the bar; exact counts moved to the tooltip via `MetricChip.detailText(label:metric:)`.

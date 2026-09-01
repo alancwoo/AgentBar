@@ -19,7 +19,6 @@ struct InsightsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 controlsSection
-                guideText
 
                 if viewModel.servicePanels.isEmpty {
                     Text("No usage recorded yet. Keep AgentBar running and this fills in as your agents are used.")
@@ -41,14 +40,10 @@ struct InsightsView: View {
         }
     }
 
-    private var guideText: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(Self.windowExplanation(for: viewModel.selectedWindow))
-            Text("Left: one tile per day, shaded by that day's peak usage. Right: the same daily peaks as a line. Consistency tiles are one per completed reset cycle.")
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .fixedSize(horizontal: false, vertical: true)
+    static let chartExplanation = "Left: one tile per day, shaded by that day's peak usage. Right: the same daily peaks as a line. Consistency tiles are one per completed reset cycle."
+
+    static func helpText(for window: UsageHistoryWindow) -> String {
+        "\(windowExplanation(for: window))\n\n\(chartExplanation)"
     }
 
     /// The two windows are named differently per service (5h/1d/monthly vs
@@ -64,13 +59,19 @@ struct InsightsView: View {
     }
 
     private var controlsSection: some View {
-        HStack(spacing: 12) {
-            Picker("Cycle", selection: $viewModel.selectedWindow) {
+        HStack(spacing: 8) {
+            Picker("", selection: $viewModel.selectedWindow) {
                 Text("Short cycle").tag(UsageHistoryWindow.primary)
                 Text("Long cycle").tag(UsageHistoryWindow.secondary)
             }
             .pickerStyle(.segmented)
-            .frame(width: 240)
+            .labelsHidden()
+            .frame(width: 220)
+
+            Image(systemName: "info.circle")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .help(Self.helpText(for: viewModel.selectedWindow))
 
             Spacer()
 
@@ -94,11 +95,7 @@ struct InsightsView: View {
                 Spacer()
             }
 
-            Text("Daily usage")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
-            heatmapSection(panel)
+            chartsSection(panel)
             dailySummarySection(panel)
 
             if panel.isSevenDayCycleAvailable {
@@ -109,12 +106,34 @@ struct InsightsView: View {
         }
     }
 
+    /// Both charts start with a title on the same line and share one height,
+    /// so the two columns read as a single row.
+    private func chartsSection(_ panel: UsageHistoryServicePanel) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                chartTitle("Daily usage")
+                heatmapSection(panel)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                chartTitle("Daily peak usage")
+                trendChartSection(panel)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func chartTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .frame(height: 12, alignment: .leading)
+    }
+
     private func heatmapSection(_ panel: UsageHistoryServicePanel) -> some View {
         let groups = groupedHeatmapCells(panel.heatmapCells)
         return HStack(alignment: .top, spacing: 6) {
-            if shouldShowWeekdayAxis(for: panel) {
-                weekdayAxis
-            }
+            weekdayAxis
 
             HStack(alignment: .top, spacing: heatmapTileSpacing) {
                 ForEach(groups.indices, id: \.self) { weekIndex in
@@ -128,8 +147,6 @@ struct InsightsView: View {
                     }
                 }
             }
-
-            trendChartSection(panel)
         }
     }
 
@@ -158,10 +175,6 @@ struct InsightsView: View {
 
     private func trendChartSection(_ panel: UsageHistoryServicePanel) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Daily peak usage")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
             UsageTrendLineChartView(
                 points: panel.trendPoints,
                 service: panel.service
@@ -256,31 +269,20 @@ struct InsightsView: View {
         }
     }
 
-    private var spacerLabel: some View {
-        Text(" ")
-            .font(.caption2)
-            .frame(height: heatmapTileSize)
-    }
+    /// Sunday-first initials, matching the calendar the view model builds the
+    /// grid with. Every row is labelled, and each label is exactly one tile tall
+    /// so it lines up with the squares beside it.
+    static let weekdayInitials = ["S", "M", "T", "W", "T", "F", "S"]
 
     private var weekdayAxis: some View {
-        VStack(alignment: .trailing, spacing: heatmapTileSpacing) {
-            Text("Sun").font(.caption2).foregroundStyle(.secondary).frame(height: heatmapTileSize)
-            spacerLabel
-            Text("Tue").font(.caption2).foregroundStyle(.secondary).frame(height: heatmapTileSize)
-            spacerLabel
-            Text("Thu").font(.caption2).foregroundStyle(.secondary).frame(height: heatmapTileSize)
-            spacerLabel
-            Text("Sat").font(.caption2).foregroundStyle(.secondary).frame(height: heatmapTileSize)
+        VStack(spacing: heatmapTileSpacing) {
+            ForEach(Array(Self.weekdayInitials.enumerated()), id: \.offset) { _, initial in
+                Text(initial)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 10, height: heatmapTileSize, alignment: .center)
+            }
         }
-        .padding(.top, 1)
-    }
-
-    private func shouldShowWeekdayAxis(for panel: UsageHistoryServicePanel) -> Bool {
-        Self.showsWeekdayAxis(for: panel.displayWindow)
-    }
-
-    static func showsWeekdayAxis(for displayWindow: UsageHistoryWindow) -> Bool {
-        displayWindow == .primary
     }
 
     private func panelWindowTitle(_ panel: UsageHistoryServicePanel) -> String {

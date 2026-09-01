@@ -150,7 +150,8 @@ struct DetailPopoverView: View {
         }
     }
 
-    static let popoverWidth: CGFloat = 320
+    /// Wide enough for two "Resets in …" chips on one line.
+    static let popoverWidth: CGFloat = 360
     /// Cap so a long service list can never push the popover off-screen.
     static let maxServiceListHeight: CGFloat = 400
     static let minServiceListHeight: CGFloat = 44
@@ -370,7 +371,7 @@ struct MetricChip: View {
                 .monospacedDigit()
                 .foregroundStyle(metric.percentage > 0.8 ? .red : .primary)
             if let remaining = Self.remainingText(for: metric) {
-                Text("- \(remaining)")
+                Text(Self.resetText(remaining: remaining))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
@@ -379,6 +380,10 @@ struct MetricChip: View {
         .lineLimit(1)
         .fixedSize()
         .help(Self.detailText(label: label, metric: metric))
+    }
+
+    static func resetText(remaining: String) -> String {
+        "· Resets in \(remaining)"
     }
 
     /// Time until this window resets, or nil once it has passed.
