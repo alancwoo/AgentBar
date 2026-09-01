@@ -334,6 +334,14 @@ final class DetailPopoverViewTests: XCTestCase {
         )
     }
 
+    func testHeaderRowIsSeparatedBySpaceNotARule() {
+        XCTAssertGreaterThanOrEqual(
+            DetailPopoverView.headerSpacing,
+            DetailPopoverView.sectionSpacing,
+            "The action row has no rule under it, so it needs at least the section gap."
+        )
+    }
+
     func testFooterRulesUseSmallerGapThanTheMainRule() {
         XCTAssertLessThan(
             DetailPopoverView.footerSpacing,

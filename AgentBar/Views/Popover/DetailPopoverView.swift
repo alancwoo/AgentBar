@@ -36,6 +36,9 @@ struct DetailPopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            actionRow
+                .padding(.bottom, Self.headerSpacing)
+
             if viewModel.usageData.isEmpty {
                 Text("No usage data available")
                     .foregroundStyle(.secondary)
@@ -49,20 +52,16 @@ struct DetailPopoverView: View {
                 .padding(.top, Self.sectionSpacing)
                 .padding(.bottom, Self.footerSpacing)
 
-            actionRow
-
-            Divider()
-                .padding(.vertical, Self.footerSpacing)
-
             buildRow
         }
         .padding(Self.contentPadding)
         .frame(width: Self.popoverWidth)
     }
 
-    /// Edge padding, and the matching gap above and below each rule. The footer
-    /// rule uses a smaller gap because its text is smaller.
+    /// Edge padding, the gap that separates the action row from the services
+    /// (no rule there), and the gaps above and below the single footer rule.
     static let contentPadding: CGFloat = 14
+    static let headerSpacing: CGFloat = 14
     static let sectionSpacing: CGFloat = 12
     static let footerSpacing: CGFloat = 8
 
@@ -103,13 +102,15 @@ struct DetailPopoverView: View {
         Button {
             Task { await viewModel.fetchAllUsage() }
         } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 10))
-                Text(Self.refreshLabel(
-                    isLoading: viewModel.isLoading,
-                    relativeTime: relativeTimeString()
-                ))
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10))
+                    Text(Self.refreshLabel(
+                        isLoading: viewModel.isLoading,
+                        relativeTime: relativeTimeString(now: context.date)
+                    ))
+                }
             }
             .font(.caption)
             .foregroundStyle(isHoveringRefresh ? Color.primary : Color.secondary)
@@ -291,11 +292,11 @@ struct DetailPopoverView: View {
 
     private static let versionString = resolvedVersionString(from: Bundle.main.infoDictionary)
 
-    private func relativeTimeString() -> String {
+    private func relativeTimeString(now: Date = Date()) -> String {
         guard let latest = viewModel.usageData.map(\.lastUpdated).max() else {
             return "never"
         }
-        let interval = Date().timeIntervalSince(latest)
+        let interval = now.timeIntervalSince(latest)
         if interval < 5 { return "just now" }
         if interval < 60 { return "\(Int(interval))s ago" }
         return "\(Int(interval / 60))m ago"

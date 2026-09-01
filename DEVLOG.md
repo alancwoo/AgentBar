@@ -2,6 +2,12 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 102: Action row on top, self-ticking refresh time
+- **Time updates on its own**: the relative time was computed during render, so it only advanced when something else redrew the popover — which is why it appeared to update on hover. The label is now wrapped in `TimelineView(.periodic(from:by: 1))` and `relativeTimeString(now:)` takes the timeline's date.
+- **Layout**: the action row (refresh status + Insights/Settings/Quit) moved to the top of the popover, separated from the service rows by `headerSpacing` 14 with no rule. Only one rule remains, between the services and the build/support line. Measured: action row at y=14, services at y=44, total height 136 for one service.
+- **Tests added**: header spacing is at least the section gap since it replaces a rule
+- All 330 tests passing
+
 ## Iteration 101: Balance the footer band, solid icon hover
 - **Action row band evened**: The first rule used `sectionSpacing` on both sides, so the action row sat 12pt below it but only 8pt above the next rule — reading as too much space above the refresh line. The rule now takes `sectionSpacing` on top and `footerSpacing` underneath, giving the whole footer band a consistent 8pt. Measured drop from 14pt to ~9pt between the rule and the glyphs.
 - **Hover chip no longer adds height**: the refresh button's highlight moved from `.padding` around the label to a negatively-inset `.background`, so the chip cannot push the row down.
