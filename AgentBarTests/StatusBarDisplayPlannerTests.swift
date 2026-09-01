@@ -117,6 +117,35 @@ final class StatusBarDisplayPlannerTests: XCTestCase {
         )
     }
 
+    func testColumnHeightFillsMenuBarHeightMinusInsets() {
+        XCTAssertEqual(
+            StatusBarDisplayPlanner.columnHeight(forItemHeight: 24),
+            24 - StatusBarDisplayPlanner.columnVerticalInset * 2
+        )
+        XCTAssertEqual(
+            StatusBarDisplayPlanner.columnHeight(forItemHeight: 22),
+            22 - StatusBarDisplayPlanner.columnVerticalInset * 2
+        )
+    }
+
+    func testColumnHeightIsClampedToSaneBounds() {
+        XCTAssertEqual(
+            StatusBarDisplayPlanner.columnHeight(forItemHeight: 200),
+            StatusBarDisplayPlanner.maxColumnHeight
+        )
+        XCTAssertEqual(
+            StatusBarDisplayPlanner.columnHeight(forItemHeight: 0),
+            StatusBarDisplayPlanner.minColumnHeight
+        )
+    }
+
+    func testColumnHeightGrowsWithMenuBarHeight() {
+        XCTAssertGreaterThan(
+            StatusBarDisplayPlanner.columnHeight(forItemHeight: 24),
+            StatusBarDisplayPlanner.columnHeight(forItemHeight: 18)
+        )
+    }
+
     func testCompactFallsBackToGlyphWidthWithNoServices() {
         XCTAssertEqual(
             StatusBarDisplayPlanner.statusItemLength(for: .compact, serviceCount: 0),

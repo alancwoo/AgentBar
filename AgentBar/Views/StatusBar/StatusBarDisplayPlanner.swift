@@ -43,8 +43,19 @@ enum StatusBarDisplayPlanner {
     // Compact style: one thin vertical column per service, side by side.
     static let columnWidth: CGFloat = 5
     static let columnSpacing: CGFloat = 2
-    static let columnHeight: CGFloat = 12
     static let horizontalInset: CGFloat = 2
+    /// Breathing room above and below the columns, matching how system menu bar
+    /// glyphs stay clear of the bar's edges.
+    static let columnVerticalInset: CGFloat = 3
+    static let minColumnHeight: CGFloat = 8
+    static let maxColumnHeight: CGFloat = 20
+
+    /// Columns fill the status item's height rather than a fixed size, so they
+    /// adapt to the menu bar thickness (22pt, 24pt, notched displays).
+    static func columnHeight(forItemHeight itemHeight: CGFloat) -> CGFloat {
+        let available = itemHeight - columnVerticalInset * 2
+        return min(maxColumnHeight, max(minColumnHeight, available))
+    }
     /// Room for the placeholder/error glyph when there is nothing to chart.
     static let emptyItemLength: CGFloat = 24
 

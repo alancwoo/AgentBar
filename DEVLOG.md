@@ -2,6 +2,12 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 95: Compact columns fill the menu bar height
+- **Height follows the status item**: `VerticalColumnsView` wraps its row in a `GeometryReader` and sizes each column with `StatusBarDisplayPlanner.columnHeight(forItemHeight:)` instead of a fixed 12pt, so the bars grow to the menu bar thickness (16pt on a 22pt bar, 18pt on a 24pt bar).
+- **Bounds**: `columnVerticalInset` 3pt top and bottom keeps the standard menu bar breathing room; height is clamped between `minColumnHeight` 8 and `maxColumnHeight` 20 so a 0pt first layout or an unusually tall bar cannot produce a degenerate column.
+- **Tests added**: height math for 22pt/24pt bars, clamping at both ends, monotonic growth with bar height
+- All 312 tests passing
+
 ## Iteration 94: Bars-only style becomes vertical columns with adaptive width
 - **Vertical columns**: The compact ("Bars only") menu bar style now draws one thin vertical column per service side by side (`VerticalColumnsView` / `VerticalBarColumn`) instead of horizontal bars stacked vertically. Each column is 5x12pt, filled bottom-up: agent color at 15% for the track, light color for the 7d window, dark color for the 5h window.
 - **Adaptive status item width**: `StatusBarDisplayPlanner.statusItemLength(for:serviceCount:)` sizes the compact item as `count * 5 + (count - 1) * 2 + 4`, so one service is 9pt, three are 23pt and six are 44pt. Labeled stays a fixed 90pt. `StatusBarController.render(services:hasError:)` re-applies the length on every data update, not just on style changes.

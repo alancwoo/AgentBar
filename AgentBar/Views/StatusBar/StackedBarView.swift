@@ -163,16 +163,20 @@ struct VerticalColumnsView: View {
     let services: [UsageData]
 
     var body: some View {
-        HStack(spacing: StatusBarDisplayPlanner.columnSpacing) {
-            ForEach(services) { usage in
-                VerticalBarColumn(usage: usage)
-                    .frame(
-                        width: StatusBarDisplayPlanner.columnWidth,
-                        height: StatusBarDisplayPlanner.columnHeight
-                    )
+        GeometryReader { geo in
+            HStack(spacing: StatusBarDisplayPlanner.columnSpacing) {
+                ForEach(services) { usage in
+                    VerticalBarColumn(usage: usage)
+                        .frame(
+                            width: StatusBarDisplayPlanner.columnWidth,
+                            height: StatusBarDisplayPlanner.columnHeight(
+                                forItemHeight: geo.size.height
+                            )
+                        )
+                }
             }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
-        .frame(height: StatusBarDisplayPlanner.viewportHeight)
         .padding(.horizontal, StatusBarDisplayPlanner.horizontalInset)
     }
 }
