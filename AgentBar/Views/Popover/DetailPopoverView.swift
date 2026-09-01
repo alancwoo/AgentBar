@@ -35,20 +35,7 @@ struct DetailPopoverView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack {
-                Text("AgentBar")
-                    .font(.headline)
-                Spacer()
-                Button(action: openSettings) {
-                    Image(systemName: "gearshape")
-                }
-                .buttonStyle(.plain)
-            }
-
-            Divider()
-
+        VStack(alignment: .leading, spacing: 10) {
             if viewModel.usageData.isEmpty {
                 Text("No usage data available")
                     .foregroundStyle(.secondary)
@@ -58,45 +45,78 @@ struct DetailPopoverView: View {
                 serviceList
             }
 
-            if !hideBuyMeACoffeeButton {
-                // Buy Me a Coffee
-                Button(action: openBMC) {
-                    Label("Buy Me a Coffee", systemImage: "cup.and.saucer.fill")
-                        .font(.caption)
-                }
-                .buttonStyle(.bordered)
-                .foregroundStyle(.orange)
-                .frame(maxWidth: .infinity)
-            }
-
-            // Footer
             Divider()
 
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    if let error = viewModel.lastError {
-                        Label(error, systemImage: "exclamationmark.triangle")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    } else {
-                        Text("Last updated: \(relativeTimeString())")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(Self.versionString)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Button("Quit") {
-                    NSApp.terminate(nil)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-            }
+            footer
         }
         .padding()
         .frame(width: Self.popoverWidth)
+    }
+
+    /// Single chrome strip: status on the left, actions on the right, with the
+    /// build and support link on a subdued second line.
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 10) {
+                if let error = viewModel.lastError {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                } else {
+                    Text("Updated: \(relativeTimeString())")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 8)
+
+                actionButton(
+                    systemImage: "chart.xyaxis.line",
+                    help: "Insights",
+                    action: openInsights
+                )
+                actionButton(
+                    systemImage: "gearshape",
+                    help: "Settings",
+                    action: openSettings
+                )
+                actionButton(
+                    systemImage: "power",
+                    help: "Quit AgentBar",
+                    action: quit
+                )
+            }
+
+            HStack(spacing: 4) {
+                Text("AgentBar \(Self.versionString)")
+                if !hideBuyMeACoffeeButton {
+                    Text("-")
+                    Button(action: openBMC) {
+                        Text("Buy me a Coffee")
+                            .underline()
+                    }
+                    .buttonStyle(.plain)
+                    .help("Support AgentBar")
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+        }
+    }
+
+    private func actionButton(
+        systemImage: String,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .help(help)
     }
 
     /// Service rows grow with their content and only scroll once they would
@@ -119,7 +139,12 @@ struct DetailPopoverView: View {
             )
         }
         .frame(maxWidth: .infinity)
-        .frame(height: Self.serviceListHeight(forContentHeight: listHeightModel.contentHeight))
+        .frame(
+            height: Self.serviceListHeight(
+                forContentHeight: listHeightModel.contentHeight,
+                estimate: Self.estimatedListHeight(for: displayUsageData)
+            )
+        )
         .onPreferenceChange(ServiceListContentHeightKey.self) { [listHeightModel] height in
             Task { @MainActor in
                 guard listHeightModel.contentHeight != height else { return }
@@ -132,17 +157,46 @@ struct DetailPopoverView: View {
     /// Cap so a long service list can never push the popover off-screen.
     static let maxServiceListHeight: CGFloat = 400
     static let minServiceListHeight: CGFloat = 44
+    static let serviceRowSpacing: CGFloat = 12
+    /// Approximate rendered heights, used only for the first layout pass.
+    static let dualMetricRowHeight: CGFloat = 70
+    static let singleMetricRowHeight: CGFloat = 55
 
     /// Clamps the measured list height into the popover's allowed range.
-    /// Returns the minimum height before the first measurement arrives.
-    static func serviceListHeight(forContentHeight contentHeight: CGFloat) -> CGFloat {
-        guard contentHeight > 0 else { return minServiceListHeight }
+    /// Until the first measurement arrives it uses `estimate`, so the popover
+    /// opens at roughly its final height instead of snapping open.
+    static func serviceListHeight(
+        forContentHeight contentHeight: CGFloat,
+        estimate: CGFloat = minServiceListHeight
+    ) -> CGFloat {
+        guard contentHeight > 0 else {
+            return min(max(estimate, minServiceListHeight), maxServiceListHeight)
+        }
         return min(max(contentHeight, minServiceListHeight), maxServiceListHeight)
+    }
+
+    /// Row-count based guess at the list height, before SwiftUI reports the real one.
+    static func estimatedListHeight(for services: [UsageData]) -> CGFloat {
+        guard !services.isEmpty else { return minServiceListHeight }
+        let rows = services.reduce(CGFloat.zero) { total, data in
+            total + (data.weeklyUsage == nil ? singleMetricRowHeight : dualMetricRowHeight)
+        }
+        let spacing = CGFloat(services.count - 1) * serviceRowSpacing
+        return min(max(rows + spacing, minServiceListHeight), maxServiceListHeight)
     }
 
     private func openSettings() {
         PopoverController.shared.hide()
         SettingsWindowController.shared.show()
+    }
+
+    private func openInsights() {
+        PopoverController.shared.hide()
+        InsightsWindowController.shared.show()
+    }
+
+    private func quit() {
+        NSApp.terminate(nil)
     }
 
     private func openBMC() {
@@ -249,10 +303,9 @@ struct MetricRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: 30, alignment: .leading)
-            if metric.unit == .percent {
-                Text(formatValue(metric.used, unit: metric.unit))
-                    .font(.caption.monospacedDigit())
-            } else {
+            // Percent metrics carry no used/total counts, so the trailing
+            // percentage column already says everything there is to say.
+            if metric.unit != .percent {
                 Text(formatValue(metric.used, unit: metric.unit))
                     .font(.caption.monospacedDigit())
                 Text("/")

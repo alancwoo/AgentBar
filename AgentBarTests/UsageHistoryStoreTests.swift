@@ -22,6 +22,20 @@ final class UsageHistoryStoreTests: XCTestCase {
         super.tearDown()
     }
 
+    func testDefaultFileURLIsRedirectedAwayFromRealHistoryDuringTests() {
+        let url = UsageHistoryStore.defaultFileURL()
+
+        XCTAssertTrue(
+            UsageHistoryStore.isRunningUnitTests,
+            "Expected the XCTest environment marker to be visible to the store."
+        )
+        XCTAssertFalse(
+            url.path.contains("Application Support/AgentBar"),
+            "Tests must never record mock usage into the user's real history file."
+        )
+        XCTAssertTrue(url.path.contains("AgentBarTestHistory"))
+    }
+
     func testDayRecordAggregatesPeakAndAverage() async {
         let store = UsageHistoryStore(fileURL: historyFileURL, calendar: calendar)
         let resetAt = makeDate(2026, 2, 20, 0, 0)

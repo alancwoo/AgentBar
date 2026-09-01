@@ -37,7 +37,7 @@ final class DetailPopoverViewTests: XCTestCase {
         withExtendedLifetime(rendered.window) {}
     }
 
-    func testDetailPopoverReservesSpaceOutsideScrollRegionForFooter() {
+    func testDetailPopoverCapsScrollRegionSoFooterChromeAlwaysFits() {
         let viewModel = UsageViewModel(providers: [])
         viewModel.usageData = makeUsageRows(count: 36)
 
@@ -47,16 +47,57 @@ final class DetailPopoverViewTests: XCTestCase {
         XCTAssertNotNil(scrollView, "Expected a scroll view when usage data is present.")
         guard let scrollView else { return }
 
-        let scrollFrame = scrollView.convert(scrollView.bounds, to: rendered.hostingView)
-        XCTAssertGreaterThan(scrollFrame.height, 0, "Expected a non-zero scroll region height after layout.")
-        let nonScrollHeight = rendered.hostingView.bounds.height - scrollFrame.height
-        XCTAssertGreaterThan(
-            nonScrollHeight,
-            80,
-            "Expected fixed header/footer chrome to remain visible outside the scroll region."
+        XCTAssertGreaterThan(scrollView.contentView.bounds.height, 0)
+        XCTAssertLessThanOrEqual(
+            scrollView.contentView.bounds.height,
+            DetailPopoverView.maxServiceListHeight + 1,
+            "The list must stay capped so header/footer chrome always has room."
         )
 
         withExtendedLifetime(rendered.window) {}
+    }
+
+    func testEstimatedListHeightScalesWithRowCountAndShape() {
+        let single = DetailPopoverView.estimatedListHeight(for: [
+            UsageData.mock(service: .claude, fiveHourPct: 0.1, weeklyPct: 0.1)
+        ])
+        XCTAssertEqual(single, DetailPopoverView.dualMetricRowHeight)
+
+        let weeklyless = UsageData(
+            service: .cursor,
+            fiveHourUsage: UsageMetric(used: 1, total: 10, unit: .requests, resetTime: nil),
+            weeklyUsage: nil,
+            lastUpdated: Date(),
+            isAvailable: true
+        )
+        XCTAssertEqual(
+            DetailPopoverView.estimatedListHeight(for: [weeklyless]),
+            DetailPopoverView.singleMetricRowHeight,
+            "A service with one window should be estimated shorter than one with two."
+        )
+
+        XCTAssertEqual(
+            DetailPopoverView.estimatedListHeight(for: makeUsageRows(count: 36)),
+            DetailPopoverView.maxServiceListHeight,
+            "The estimate is clamped by the same cap as the measured height."
+        )
+        XCTAssertEqual(
+            DetailPopoverView.estimatedListHeight(for: []),
+            DetailPopoverView.minServiceListHeight
+        )
+    }
+
+    func testServiceListUsesEstimateUntilMeasured() {
+        XCTAssertEqual(
+            DetailPopoverView.serviceListHeight(forContentHeight: 0, estimate: 210),
+            210,
+            "Before measurement the popover should open at its estimated height."
+        )
+        XCTAssertEqual(
+            DetailPopoverView.serviceListHeight(forContentHeight: 180, estimate: 210),
+            180,
+            "The measured height wins once it arrives."
+        )
     }
 
     func testBuyMeACoffeeActionOpensExpectedURL() {

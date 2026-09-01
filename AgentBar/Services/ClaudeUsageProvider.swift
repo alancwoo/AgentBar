@@ -8,6 +8,9 @@ struct ClaudeOAuthCredentials: Decodable, Sendable {
 
 struct ClaudeOAuthToken: Decodable, Sendable {
     let accessToken: String
+    /// Present in recent Claude Code credentials (e.g. "pro", "max"); absent in
+    /// older ones, in which case the plan label falls back to the manual pick.
+    let subscriptionType: String?
 }
 
 struct ClaudeUsageResponse: Decodable, Sendable {
@@ -69,6 +72,7 @@ final class ClaudeUsageProvider: UsageProviderProtocol, @unchecked Sendable {
 
     private let session: URLSession
     private let credentialProvider: @Sendable () -> String?
+    private let detectedPlanProvider: @Sendable () -> String?
     private let defaults: UserDefaults
 
     static let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage")!
@@ -78,6 +82,7 @@ final class ClaudeUsageProvider: UsageProviderProtocol, @unchecked Sendable {
     private static let defaultCacheTTL: TimeInterval = 60
     private static let securityCLITimeout: TimeInterval = 2
     nonisolated(unsafe) private static var cachedToken: String?
+    nonisolated(unsafe) private static var cachedSubscriptionType: String?
     nonisolated(unsafe) private static var tokenLastLookupAt: Date?
     typealias SecurityCLIProcessRuntime = CLIProcessRuntime
     nonisolated(unsafe) static var securityCLIRunner: @Sendable (_ timeout: TimeInterval) -> String? = { timeout in
@@ -87,11 +92,17 @@ final class ClaudeUsageProvider: UsageProviderProtocol, @unchecked Sendable {
     init(
         session: URLSession = .shared,
         credentialProvider: (@Sendable () -> String?)? = nil,
+        detectedPlanProvider: (@Sendable () -> String?)? = nil,
         defaults: UserDefaults = .standard
     ) {
         self.session = session
         self.credentialProvider = credentialProvider ?? { Self.readKeychainTokenViaCLI() }
+        self.detectedPlanProvider = detectedPlanProvider ?? { Self.detectedPlanName() }
         self.defaults = defaults
+    }
+
+    private func resolvedPlanName() -> String? {
+        Self.resolvedPlanName(defaults: defaults, detectedPlan: detectedPlanProvider)
     }
 
     func isConfigured() async -> Bool {
@@ -136,8 +147,7 @@ final class ClaudeUsageProvider: UsageProviderProtocol, @unchecked Sendable {
             cacheKey: "claudeUsageCache.sevenDay"
         )
 
-        let planName = (defaults.string(forKey: "claudePlan")
-            .flatMap { ClaudePlan(rawValue: $0) } ?? .pro).rawValue
+        let planName = resolvedPlanName()
 
         return UsageData(
             service: .claude,
@@ -160,8 +170,7 @@ final class ClaudeUsageProvider: UsageProviderProtocol, @unchecked Sendable {
         guard fiveHour != nil || sevenDay != nil else { throw error }
 
         let zeroPercent = UsageMetric(used: 0, total: 100, unit: .percent, resetTime: nil)
-        let planName = (defaults.string(forKey: "claudePlan")
-            .flatMap { ClaudePlan(rawValue: $0) } ?? .pro).rawValue
+        let planName = resolvedPlanName()
 
         return UsageData(
             service: .claude,
@@ -275,16 +284,50 @@ final class ClaudeUsageProvider: UsageProviderProtocol, @unchecked Sendable {
 
         let rawJSON = securityCLIRunner(securityCLITimeout)
         let token = rawJSON.flatMap { parseAccessToken(from: $0) }
+        // Same blob, so the plan comes for free with no extra Keychain read.
+        cachedSubscriptionType = rawJSON.flatMap { parseSubscriptionType(from: $0) }
         cachedToken = token
         tokenLastLookupAt = now
         return token
     }
 
+    /// Plan label detected from the Claude Code credentials, if they record one.
+    static func detectedPlanName() -> String? {
+        _ = readKeychainTokenViaCLI()
+        tokenCacheLock.lock()
+        let subscriptionType = cachedSubscriptionType
+        tokenCacheLock.unlock()
+        return subscriptionType.flatMap { ClaudePlan.displayName(forSubscriptionType: $0) }
+    }
+
+    /// Resolves the label shown beside "Claude Code": the detected plan while
+    /// the setting is on Auto, otherwise the manually chosen plan.
+    static func resolvedPlanName(
+        defaults: UserDefaults,
+        detectedPlan: () -> String?
+    ) -> String? {
+        let stored = defaults.string(forKey: "claudePlan") ?? ClaudePlan.autoRawValue
+        guard stored != ClaudePlan.autoRawValue else {
+            return detectedPlan()
+        }
+        return ClaudePlan(rawValue: stored)?.rawValue ?? ClaudePlan.pro.rawValue
+    }
+
     static func resetTokenCache() {
         tokenCacheLock.lock()
         cachedToken = nil
+        cachedSubscriptionType = nil
         tokenLastLookupAt = nil
         tokenCacheLock.unlock()
+    }
+
+    /// Parses the recorded subscription type from the raw JSON credential blob.
+    static func parseSubscriptionType(from jsonString: String) -> String? {
+        guard let data = jsonString.data(using: .utf8),
+              let creds = try? JSONDecoder().decode(ClaudeOAuthCredentials.self, from: data) else {
+            return nil
+        }
+        return creds.claudeAiOauth.subscriptionType
     }
 
     /// Parses the OAuth access token from the raw JSON credential blob.

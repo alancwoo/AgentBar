@@ -516,7 +516,19 @@ actor UsageHistoryStore: UsageHistoryStoreProtocol {
         }
     }
 
-    private static func defaultFileURL(fileManager: FileManager) -> URL {
+    /// Unit tests exercise `UsageViewModel` with mock providers, which record
+    /// samples. Those must never land in the user's real history file.
+    static var isRunningUnitTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
+    static func defaultFileURL(fileManager: FileManager = .default) -> URL {
+        if isRunningUnitTests {
+            return fileManager.temporaryDirectory
+                .appendingPathComponent("AgentBarTestHistory", isDirectory: true)
+                .appendingPathComponent("usage-history.json")
+        }
+
         let baseDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser
                 .appendingPathComponent("Library/Application Support", isDirectory: true)

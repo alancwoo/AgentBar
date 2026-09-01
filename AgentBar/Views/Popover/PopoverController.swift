@@ -7,6 +7,8 @@ final class PopoverController {
 
     private var popover: NSPopover?
     private var isShown = false
+    private var outsideClickMonitor: Any?
+    private var appActivationObserver: NSObjectProtocol?
 
     private init() {}
 
@@ -36,13 +38,55 @@ final class PopoverController {
         self.popover = popover
         isShown = true
 
+        startDismissMonitors()
+
         // Clear first responder so no button shows a focus ring on open.
         DispatchQueue.main.async {
             popover.contentViewController?.view.window?.makeFirstResponder(nil)
         }
     }
 
+    /// `.transient` only reacts to interaction inside this app, so clicks in
+    /// another app (or switching apps) are watched explicitly.
+    private func startDismissMonitors() {
+        stopDismissMonitors()
+
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.hide()
+            }
+        }
+
+        appActivationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let activated = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                as? NSRunningApplication
+            guard activated?.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
+            Task { @MainActor in
+                self?.hide()
+            }
+        }
+    }
+
+    private func stopDismissMonitors() {
+        if let outsideClickMonitor {
+            NSEvent.removeMonitor(outsideClickMonitor)
+        }
+        outsideClickMonitor = nil
+
+        if let appActivationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(appActivationObserver)
+        }
+        appActivationObserver = nil
+    }
+
     func hide() {
+        stopDismissMonitors()
         popover?.performClose(nil)
         popover = nil
         isShown = false

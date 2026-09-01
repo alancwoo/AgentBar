@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct UsageHistoryTabView: View {
+struct InsightsView: View {
     @StateObject private var viewModel: UsageHistoryViewModel
     private let heatmapTileSize: CGFloat = 12
     private let heatmapTileSpacing: CGFloat = 3
@@ -22,7 +22,7 @@ struct UsageHistoryTabView: View {
                 guideText
 
                 if viewModel.servicePanels.isEmpty {
-                    Text("No history yet. Keep AgentBar running to collect usage.")
+                    Text("No usage recorded yet. Keep AgentBar running and this fills in as your agents are used.")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 24)
@@ -42,26 +42,44 @@ struct UsageHistoryTabView: View {
     }
 
     private var guideText: some View {
-        Text("Guide: Daily Heatmap uses 1 tile = 1 day (left labels are weekdays). 7d Cycle Consistency uses 1 tile = 1 reset cycle.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 3) {
+            Text(Self.windowExplanation(for: viewModel.selectedWindow))
+            Text("Each heatmap tile is one day; each consistency tile is one reset cycle.")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The two windows are named differently per service (5h/1d/monthly vs
+    /// 7d/MCP), so the picker names the cycle length rather than the raw
+    /// "primary"/"secondary" field names.
+    static func windowExplanation(for window: UsageHistoryWindow) -> String {
+        switch window {
+        case .primary:
+            return "Short cycle: the rate limit that refills fastest — 5h for Claude Code, Codex and Z.ai, 1 day for Gemini, monthly for Copilot and Cursor."
+        case .secondary:
+            return "Long cycle: the slower rolling limit — 7d for Claude Code and Codex, monthly MCP for Z.ai. Services without one fall back to their short cycle."
+        }
     }
 
     private var controlsSection: some View {
         HStack(spacing: 12) {
-            Picker("Window", selection: $viewModel.selectedWindow) {
-                Text("Primary").tag(UsageHistoryWindow.primary)
-                Text("Secondary").tag(UsageHistoryWindow.secondary)
+            Picker("Cycle", selection: $viewModel.selectedWindow) {
+                Text("Short cycle").tag(UsageHistoryWindow.primary)
+                Text("Long cycle").tag(UsageHistoryWindow.secondary)
             }
             .pickerStyle(.segmented)
+            .frame(width: 240)
 
             Picker("Range", selection: $viewModel.selectedRangeWeeks) {
-                Text("4w").tag(4)
-                Text("8w").tag(8)
-                Text("12w").tag(12)
+                Text("4 weeks").tag(4)
+                Text("8 weeks").tag(8)
+                Text("12 weeks").tag(12)
             }
-            .frame(width: 140)
+            .frame(width: 180)
+
+            Spacer()
         }
     }
 
@@ -82,7 +100,7 @@ struct UsageHistoryTabView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text("Daily Heatmap (1 tile = 1 day)")
+            Text("Daily usage")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
@@ -124,11 +142,11 @@ struct UsageHistoryTabView: View {
 
     private func cycleConsistencySection(_ panel: UsageHistoryServicePanel) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("7d Cycle Consistency (1 tile = 1 reset cycle)")
+            Text("Cycle consistency")
                 .font(.subheadline.weight(.semibold))
 
             if panel.cycleCells.isEmpty {
-                Text("Not enough 7d cycle data yet.")
+                Text("Not enough completed cycles yet.")
                     .foregroundStyle(.secondary)
             } else {
                 HStack(spacing: 4) {

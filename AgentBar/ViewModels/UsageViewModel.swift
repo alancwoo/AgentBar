@@ -124,7 +124,10 @@ final class UsageViewModel: ObservableObject {
         let defaults = UserDefaults.standard
         switch service {
         case .claude:
-            return defaults.string(forKey: "claudePlan")
+            return ClaudeUsageProvider.resolvedPlanName(
+                defaults: defaults,
+                detectedPlan: { ClaudeUsageProvider.detectedPlanName() }
+            )
         case .codex:
             return defaults.string(forKey: "codexPlan")
         case .cursor:

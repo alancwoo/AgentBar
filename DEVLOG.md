@@ -2,6 +2,19 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 96: Popover chrome merge, collapsible settings, Insights window
+- **History pollution fixed (root cause)**: `UsageViewModel(providers:)` defaults to a real `UsageHistoryStore()`, so every unit test run recorded mock samples (7,000,000 tokens, ratio 0.5, several services at one timestamp) into `~/Library/Application Support/AgentBar/usage-history.json`. `UsageHistoryStore.defaultFileURL` now redirects to a temp directory when `XCTestConfigurationFilePath` is set.
+- **Inactive providers hidden from insights**: `UsageHistoryViewModel` filters panels through `hasRecordedUsage(_:)`, so a configured-but-never-used provider no longer gets an all-zero chart.
+- **Popover chrome merged**: Removed the title/gear header. Stats render immediately, and one footer carries `Updated: …` plus Insights / Settings / Quit icon buttons, with `AgentBar <build> - Buy me a Coffee` as subdued caption2 text underneath (still hidden by `hideBuyMeACoffeeButton`). One service now measures 320x141 (was 320x480 originally).
+- **Duplicate percentage removed**: `MetricRow` printed `formatValue(used)` and the trailing `percentage` column, which are identical for `.percent` metrics — Claude Code showed "27% … 27%". The left value column is now skipped for percent units.
+- **Popover dismisses on click-away**: `.transient` only reacts inside the app, so `PopoverController` adds a global mouse-down monitor plus an `NSWorkspace.didActivateApplicationNotification` observer (ignoring self-activation), torn down in `hide()`.
+- **Estimated first layout**: The list previously rendered at its 44pt minimum until the height preference landed, so the popover snapped open (and made `DetailPopoverViewTests` flaky). `estimatedListHeight(for:)` seeds the first pass from the row count and shape.
+- **Settings streamlined**: `providerSection(title:isEnabled:)` renders each provider as a headline row with a switch; its settings appear only while enabled. History tab removed, window height 750 -> 640.
+- **Insights window**: `UsageHistoryTabView` became `InsightsView` under `Views/Insights`, presented by the new `InsightsWindowController` from the popover's chart icon. The "Window Primary/Secondary" picker is now "Cycle: Short/Long" with a caption explaining what each means per service.
+- **Claude plan auto-detection**: `ClaudeOAuthToken` gained optional `subscriptionType`, parsed from the same credential blob already read for the token (no extra Keychain access). `claudePlan` defaults to `Auto`, resolved by `ClaudeUsageProvider.resolvedPlanName(defaults:detectedPlan:)`; a manual pick still wins, and Auto shows no label rather than a wrong one when detection fails.
+- **Tests added**: store path redirection, popover height estimate (3), plan resolution and subscription-type parsing (6), settings tab set
+- All 321 tests passing
+
 ## Iteration 95: Compact columns fill the menu bar height
 - **Height follows the status item**: `VerticalColumnsView` wraps its row in a `GeometryReader` and sizes each column with `StatusBarDisplayPlanner.columnHeight(forItemHeight:)` instead of a fixed 12pt, so the bars grow to the menu bar thickness (16pt on a 22pt bar, 18pt on a 24pt bar).
 - **Bounds**: `columnVerticalInset` 3pt top and bottom keeps the standard menu bar breathing room; height is clamped between `minColumnHeight` 8 and `maxColumnHeight` 20 so a 0pt first layout or an unusually tall bar cannot produce a degenerate column.

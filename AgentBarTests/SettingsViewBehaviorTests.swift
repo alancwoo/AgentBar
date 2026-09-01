@@ -45,8 +45,10 @@ final class SettingsViewBehaviorTests: XCTestCase {
         )
     }
 
-    func testSettingsTabSupportsHistoryCase() {
-        XCTAssertEqual(SettingsTab.history, .history)
+    func testSettingsTabsAreUsageAndNotificationsOnly() {
+        // History moved out of Settings into its own Insights window.
+        XCTAssertEqual(SettingsTab.usage, .usage)
+        XCTAssertEqual(SettingsTab.notifications, .notifications)
     }
 
     func testCopilotLegacyManualPATMigrationEnablesFlagWhenSavedTokenExists() {

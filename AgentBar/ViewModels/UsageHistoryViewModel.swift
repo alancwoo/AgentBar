@@ -249,6 +249,15 @@ final class UsageHistoryViewModel: ObservableObject {
 
         guard !isStale(generation) else { return }
 
+        // A provider that was configured but never actually used records nothing
+        // but zeroes; charting it is noise, so it is dropped from the insights.
+        panels = panels.filter(Self.hasRecordedUsage)
+
+        guard !panels.isEmpty else {
+            resetStateForEmptyHistory()
+            return
+        }
+
         panels.sort {
             if $0.usageFrequencyDays != $1.usageFrequencyDays {
                 return $0.usageFrequencyDays > $1.usageFrequencyDays
@@ -520,6 +529,13 @@ final class UsageHistoryViewModel: ObservableObject {
         if value <= 0.5 { return 2 }
         if value <= 0.75 { return 3 }
         return 4
+    }
+
+    /// True when the panel has at least one non-zero day or closed cycle.
+    static func hasRecordedUsage(_ panel: UsageHistoryServicePanel) -> Bool {
+        if panel.usageFrequencyDays > 0 { return true }
+        if panel.heatmapCells.contains(where: { $0.peakRatio > 0 || $0.usedValue > 0 }) { return true }
+        return panel.cycleCells.contains { $0.peakRatio > 0 }
     }
 
     private static func serviceOrderIndex(for service: ServiceType) -> Int {

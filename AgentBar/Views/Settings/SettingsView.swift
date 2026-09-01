@@ -11,7 +11,7 @@ extension Notification.Name {
 /// macOS HIG keeps a tab control clear of the title bar rather than flush against it.
 enum SettingsLayout {
     static let contentWidth: CGFloat = 450
-    static let contentHeight: CGFloat = 750
+    static let contentHeight: CGFloat = 640
     /// AppKit's tab control draws ~6pt above the frame SwiftUI assigns it, so the
     /// padding is the desired title-bar clearance plus that overflow.
     static let tabBarTopPadding: CGFloat = 18
@@ -45,7 +45,7 @@ struct SettingsView: View {
     #endif
 
     @AppStorage("claudeEnabled") private var claudeEnabled = true
-    @AppStorage("claudePlan") private var claudePlan: String = ClaudePlan.pro.rawValue
+    @AppStorage("claudePlan") private var claudePlan: String = ClaudePlan.autoRawValue
 
     @AppStorage("codexEnabled") private var codexEnabled = true
     @AppStorage("codexPlan") private var codexPlan: String = CodexPlan.pro.rawValue
@@ -96,10 +96,6 @@ struct SettingsView: View {
             notificationsTab
                 .tabItem { Label("Notifications", systemImage: "bell") }
                 .tag(SettingsTab.notifications)
-
-            historyTab
-                .tabItem { Label("History", systemImage: "calendar") }
-                .tag(SettingsTab.history)
         }
         .frame(width: SettingsLayout.contentWidth, height: SettingsLayout.contentHeight)
         .padding(.top, SettingsLayout.tabBarTopPadding)
@@ -140,6 +136,28 @@ struct SettingsView: View {
 
     // MARK: - Usage Tab
 
+    /// A provider row: name plus an on/off switch, with its settings revealed
+    /// only while the provider is enabled so the list stays scannable.
+    private func providerSection<Content: View>(
+        title: String,
+        isEnabled: Binding<Bool>,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        Section {
+            Toggle(isOn: isEnabled) {
+                Text(title)
+                    .font(.headline)
+            }
+            .onChange(of: isEnabled.wrappedValue) { _ in
+                notifyLimitsChanged()
+            }
+
+            if isEnabled.wrappedValue {
+                content()
+            }
+        }
+    }
+
     private var usageTab: some View {
         Form {
             Section("General") {
@@ -169,13 +187,9 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Claude Code") {
-                Toggle("Enabled", isOn: $claudeEnabled)
-                    .onChange(of: claudeEnabled) { _ in
-                        notifyLimitsChanged()
-                    }
-
+            providerSection(title: "Claude Code", isEnabled: $claudeEnabled) {
                 Picker("Plan", selection: $claudePlan) {
+                    Text("Auto (from Claude Code)").tag(ClaudePlan.autoRawValue)
                     ForEach(ClaudePlan.allCases, id: \.rawValue) { plan in
                         Text(plan.rawValue).tag(plan.rawValue)
                     }
@@ -184,17 +198,12 @@ struct SettingsView: View {
                     notifyLimitsChanged()
                 }
 
-                Text("Usage is fetched from the Anthropic OAuth API using Claude Code credentials. The plan above is only the label shown next to \"Claude Code\" — percentages always come from the API.")
+                Text("Auto reads the plan recorded in your Claude Code credentials; it cannot tell Max 5x from Max 20x, so pick a tier manually if you want that shown. Either way this is only the label beside \"Claude Code\" — percentages always come from the Anthropic OAuth API.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("OpenAI Codex") {
-                Toggle("Enabled", isOn: $codexEnabled)
-                    .onChange(of: codexEnabled) { _ in
-                        notifyLimitsChanged()
-                    }
-
+            providerSection(title: "OpenAI Codex", isEnabled: $codexEnabled) {
                 Picker("Plan", selection: $codexPlan) {
                     ForEach(CodexPlan.allCases, id: \.rawValue) { plan in
                         Text(plan.rawValue).tag(plan.rawValue)
@@ -241,12 +250,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Google Gemini") {
-                Toggle("Enabled", isOn: $geminiEnabled)
-                    .onChange(of: geminiEnabled) { _ in
-                        notifyLimitsChanged()
-                    }
-
+            providerSection(title: "Google Gemini", isEnabled: $geminiEnabled) {
                 HStack {
                     Text("Daily request limit:")
                     TextField("", value: $geminiDailyLimit, format: .number)
@@ -263,11 +267,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("GitHub Copilot") {
-                Toggle("Enabled", isOn: $copilotEnabled)
-                    .onChange(of: copilotEnabled) { _ in
-                        notifyLimitsChanged()
-                    }
+            providerSection(title: "GitHub Copilot", isEnabled: $copilotEnabled) {
                 Text("Plan is auto-detected from GitHub API. Token is auto-read from gh CLI (gh auth token).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -295,12 +295,7 @@ struct SettingsView: View {
                 .font(.caption)
             }
 
-            Section("Cursor") {
-                Toggle("Enabled", isOn: $cursorEnabled)
-                    .onChange(of: cursorEnabled) { _ in
-                        notifyLimitsChanged()
-                    }
-
+            providerSection(title: "Cursor", isEnabled: $cursorEnabled) {
                 Picker("Plan", selection: $cursorPlan) {
                     ForEach(CursorPlan.allCases, id: \.rawValue) { plan in
                         Text(plan.rawValue).tag(plan.rawValue)
@@ -332,11 +327,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Z.ai Coding Plan") {
-                Toggle("Enabled", isOn: $zaiEnabled)
-                    .onChange(of: zaiEnabled) { _ in
-                        notifyLimitsChanged()
-                    }
+            providerSection(title: "Z.ai Coding Plan", isEnabled: $zaiEnabled) {
                 if hasSavedZaiAPIKey {
                     Text("An API key is already saved in Keychain")
                         .font(.caption2)
@@ -359,19 +350,13 @@ struct SettingsView: View {
             }
 
             Section("Support") {
-                Toggle("Hide Buy Me a Coffee button", isOn: $hideBuyMeACoffeeButton)
-                Text("If you've already donated and the BMC button feels distracting, you can hide it.")
+                Toggle("Hide Buy me a Coffee link", isOn: $hideBuyMeACoffeeButton)
+                Text("Hides the support link in the popover footer if you've already donated.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-    }
-
-    // MARK: - Notifications Tab
-
-    private var historyTab: some View {
-        UsageHistoryTabView()
     }
 
     // MARK: - Notifications Tab
@@ -671,8 +656,8 @@ struct SettingsView: View {
         if claudePlan == "Max" {
             claudePlan = ClaudePlan.max5x.rawValue
         }
-        if ClaudePlan(rawValue: claudePlan) == nil {
-            claudePlan = ClaudePlan.pro.rawValue
+        if claudePlan != ClaudePlan.autoRawValue, ClaudePlan(rawValue: claudePlan) == nil {
+            claudePlan = ClaudePlan.autoRawValue
         }
     }
 
@@ -819,7 +804,6 @@ struct SettingsView: View {
 
 enum SettingsTab {
     case usage
-    case history
     case notifications
 }
 
