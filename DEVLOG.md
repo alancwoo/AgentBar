@@ -2,6 +2,12 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 100: Even popover padding and a clickable refresh status
+- **Padding made explicit**: The popover body switched from `VStack(spacing: 10)` + default `.padding()` to `spacing: 0` with `contentPadding` 14 on all four edges, `sectionSpacing` 12 above and below the main rule and `footerSpacing` 8 around the footer rule. `ServiceDetailRow` dropped its own `.padding(.vertical, 2)`, which had been adding to the list spacing and pushing the first row off the top inset. Measured: list at y=14/x=14/w=332 in a 360-wide popover, first rule at y=102.
+- **Refresh button**: The freshness line is now a plain-styled `Button` that calls `viewModel.fetchAllUsage()`, highlights on hover (`Color.primary.opacity(0.08)` rounded background via `onHover`), is disabled mid-fetch, and shows "Refreshing…" while `viewModel.isLoading` — see `refreshLabel(isLoading:relativeTime:)`.
+- **Tests added**: refresh label states, footer/section spacing relationship
+- All 329 tests passing
+
 ## Iteration 99: Cycle help as a hover popover, refresh-icon footer
 - **Info hover now works**: `.help()` on the bare `info.circle` Image never registered a tooltip. The icon now takes a `contentShape(Rectangle())` plus `onHover` driving a `.popover(arrowEdge: .bottom)` that shows `InsightsView.helpText(for:)` at a readable width; `.help()` stays as a fallback.
 - **Footer**: "Updated: " replaced by an `arrow.clockwise` glyph beside the relative time, and a second `Divider()` separates that action row from the `AgentBar <build>` / Buy me a Coffee line. Footer spacing 3 -> 6.

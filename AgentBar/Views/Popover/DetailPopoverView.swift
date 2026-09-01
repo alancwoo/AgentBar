@@ -18,6 +18,7 @@ final class ServiceListHeightModel: ObservableObject {
 struct DetailPopoverView: View {
     @ObservedObject var viewModel: UsageViewModel
     @StateObject private var listHeightModel = ServiceListHeightModel()
+    @State private var isHoveringRefresh = false
     private let openExternalURL: (URL) -> Void
     private var displayUsageData: [UsageData] {
         Self.sortedForDisplay(viewModel.usageData)
@@ -34,7 +35,7 @@ struct DetailPopoverView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 0) {
             if viewModel.usageData.isEmpty {
                 Text("No usage data available")
                     .foregroundStyle(.secondary)
@@ -45,32 +46,35 @@ struct DetailPopoverView: View {
             }
 
             Divider()
+                .padding(.vertical, Self.sectionSpacing)
 
-            footer
+            actionRow
+
+            Divider()
+                .padding(.vertical, Self.footerSpacing)
+
+            buildRow
         }
-        .padding()
+        .padding(Self.contentPadding)
         .frame(width: Self.popoverWidth)
     }
 
-    /// Single chrome strip: status on the left, actions on the right, with the
-    /// build and support link on a subdued second line.
-    private var footer: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
+    /// Edge padding, and the matching gap above and below each rule. The footer
+    /// rule uses a smaller gap because its text is smaller.
+    static let contentPadding: CGFloat = 14
+    static let sectionSpacing: CGFloat = 12
+    static let footerSpacing: CGFloat = 8
+
+    /// Status on the left, actions on the right.
+    private var actionRow: some View {
+        HStack(spacing: 10) {
                 if let error = viewModel.lastError {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
                         .lineLimit(1)
                 } else {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 10))
-                        Text(relativeTimeString())
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .help("Last refreshed")
+                    refreshButton
                 }
 
                 Spacer(minLength: 8)
@@ -90,23 +94,57 @@ struct DetailPopoverView: View {
                     help: "Quit AgentBar",
                     action: quit
                 )
-            }
-
-            Divider()
-
-            HStack(spacing: 6) {
-                Text("AgentBar \(Self.versionString)")
-                Spacer(minLength: 8)
-                Button(action: openBMC) {
-                    Text("Buy me a Coffee")
-                        .underline()
-                }
-                .buttonStyle(.plain)
-                .help("Support AgentBar")
-            }
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
         }
+    }
+
+    /// Doubles as the freshness indicator and a manual refresh trigger.
+    private var refreshButton: some View {
+        Button {
+            Task { await viewModel.fetchAllUsage() }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 10))
+                Text(Self.refreshLabel(
+                    isLoading: viewModel.isLoading,
+                    relativeTime: relativeTimeString()
+                ))
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isHoveringRefresh ? Color.primary.opacity(0.08) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.isLoading)
+        .onHover { hovering in
+            isHoveringRefresh = hovering
+        }
+        .help("Refresh now")
+    }
+
+    static func refreshLabel(isLoading: Bool, relativeTime: String) -> String {
+        isLoading ? "Refreshing…" : relativeTime
+    }
+
+    private var buildRow: some View {
+        HStack(spacing: 6) {
+            Text("AgentBar \(Self.versionString)")
+            Spacer(minLength: 8)
+            Button(action: openBMC) {
+                Text("Buy me a Coffee")
+                    .underline()
+            }
+            .buttonStyle(.plain)
+            .help("Support AgentBar")
+        }
+        .font(.caption2)
+        .foregroundStyle(.tertiary)
     }
 
     private func actionButton(
@@ -304,7 +342,6 @@ struct ServiceDetailRow: View {
                 }
             }
         }
-        .padding(.vertical, 2)
     }
 }
 

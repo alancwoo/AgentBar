@@ -323,6 +323,31 @@ final class DetailPopoverViewTests: XCTestCase {
         XCTAssertEqual(MetricChip.detailText(label: "7d", metric: percent), "7d: 28% used")
     }
 
+    func testRefreshLabelSwitchesToProgressWhileFetching() {
+        XCTAssertEqual(
+            DetailPopoverView.refreshLabel(isLoading: true, relativeTime: "52s ago"),
+            "Refreshing…"
+        )
+        XCTAssertEqual(
+            DetailPopoverView.refreshLabel(isLoading: false, relativeTime: "52s ago"),
+            "52s ago"
+        )
+    }
+
+    func testFooterRulesUseSmallerGapThanTheMainRule() {
+        XCTAssertLessThan(
+            DetailPopoverView.footerSpacing,
+            DetailPopoverView.sectionSpacing,
+            "The smaller footer text should sit in a tighter band."
+        )
+        XCTAssertGreaterThan(DetailPopoverView.footerSpacing, 0)
+        XCTAssertEqual(
+            DetailPopoverView.contentPadding,
+            14,
+            "Edge padding is shared by all four sides so the first row is inset like the last."
+        )
+    }
+
     private func makeUsageRows(count: Int) -> [UsageData] {
         let services = ServiceType.allCases
         return (0..<count).map { index in
