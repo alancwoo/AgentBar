@@ -356,6 +356,47 @@ final class DetailPopoverViewTests: XCTestCase {
         )
     }
 
+    func testScrollViewOnlyAppearsWhenTheListWouldOverflow() {
+        let sixServices = ServiceType.allCases.prefix(6).map {
+            UsageData.mock(service: $0, fiveHourPct: 0.2, weeklyPct: 0.3)
+        }
+        XCTAssertFalse(
+            DetailPopoverView.needsScrolling(for: Array(sixServices)),
+            "Every supported provider still fits without scrolling."
+        )
+        XCTAssertTrue(DetailPopoverView.needsScrolling(for: makeUsageRows(count: 36)))
+        XCTAssertFalse(DetailPopoverView.needsScrolling(for: []))
+    }
+
+    func testEveryProviderAtOnceFitsWithoutScrollingOrOversizing() {
+        let services = ServiceType.allCases.map { service -> UsageData in
+            UsageData.mock(service: service, fiveHourPct: 0.4, weeklyPct: 0.5)
+        }
+
+        XCTAssertEqual(services.count, 7, "All supported providers are covered.")
+        XCTAssertFalse(
+            DetailPopoverView.needsScrolling(for: services),
+            "Showing every provider at once should not need a scroll view."
+        )
+
+        let listHeight = DetailPopoverView.estimatedListHeight(for: services)
+        XCTAssertLessThan(
+            listHeight,
+            DetailPopoverView.maxServiceListHeight,
+            "Seven providers must stay under the cap that forces scrolling."
+        )
+
+        // Chrome: edge padding twice, the action row, its gap, and the build line.
+        let chrome = DetailPopoverView.contentPadding * 2
+            + DetailPopoverView.headerSpacing
+            + DetailPopoverView.sectionSpacing
+        XCTAssertLessThan(
+            listHeight + chrome,
+            500,
+            "The whole popover should stay comfortably on screen with every provider enabled."
+        )
+    }
+
     private func makeUsageRows(count: Int) -> [UsageData] {
         let services = ServiceType.allCases
         return (0..<count).map { index in

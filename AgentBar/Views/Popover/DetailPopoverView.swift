@@ -48,18 +48,15 @@ struct DetailPopoverView: View {
                 serviceList
             }
 
-            Divider()
-                .padding(.top, Self.sectionSpacing)
-                .padding(.bottom, Self.footerSpacing)
-
             buildRow
+                .padding(.top, Self.sectionSpacing)
         }
         .padding(Self.contentPadding)
         .frame(width: Self.popoverWidth)
     }
 
-    /// Edge padding, the gap that separates the action row from the services
-    /// (no rule there), and the gaps above and below the single footer rule.
+    /// Edge padding, the gap under the action row, and the gap above the build
+    /// line. The popover carries no rules — bands are separated by space alone.
     static let contentPadding: CGFloat = 14
     static let headerSpacing: CGFloat = 14
     static let sectionSpacing: CGFloat = 12
@@ -159,24 +156,38 @@ struct DetailPopoverView: View {
         ActionIconButton(systemImage: systemImage, help: help, action: action)
     }
 
-    /// Service rows grow with their content and only scroll once they would
-    /// make the popover taller than `maxServiceListHeight`.
+    /// Service rows grow with their content. A scroll view only appears once the
+    /// list would outgrow `maxServiceListHeight`, so the common case is a plain
+    /// stack that sizes itself exactly.
+    @ViewBuilder
     private var serviceList: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(displayUsageData) { data in
-                    ServiceDetailRow(data: data)
-                }
+        if Self.needsScrolling(for: displayUsageData) {
+            scrollingServiceList
+        } else {
+            serviceRows
+        }
+    }
+
+    private var serviceRows: some View {
+        VStack(alignment: .leading, spacing: Self.serviceRowSpacing) {
+            ForEach(displayUsageData) { data in
+                ServiceDetailRow(data: data)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: ServiceListContentHeightKey.self,
-                        value: proxy.size.height
-                    )
-                }
-            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var scrollingServiceList: some View {
+        ScrollView {
+            serviceRows
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: ServiceListContentHeightKey.self,
+                            value: proxy.size.height
+                        )
+                    }
+                )
         }
         .frame(maxWidth: .infinity)
         .frame(
@@ -193,7 +204,11 @@ struct DetailPopoverView: View {
         }
     }
 
-    /// Wide enough for two "Resets in …" chips on one line.
+    /// Decided from the row estimate, which is deterministic from the data.
+    static func needsScrolling(for services: [UsageData]) -> Bool {
+        estimatedListHeight(for: services) >= maxServiceListHeight
+    }
+
     static let popoverWidth: CGFloat = 360
     /// Cap so a long service list can never push the popover off-screen.
     static let maxServiceListHeight: CGFloat = 400

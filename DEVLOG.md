@@ -2,6 +2,13 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 103: Ruleless popover, scroll only on overflow
+- **Footer rule removed**: the popover now separates bands with space alone — `contentPadding` 14 edges, `headerSpacing` 14 under the action row, `sectionSpacing` 12 above the build line.
+- **Scroll view only when needed**: `needsScrolling(for:)` compares the deterministic row estimate against `maxServiceListHeight`, so the normal case renders a plain `VStack` that sizes itself exactly and drops an unnecessary `NSScrollView`. The scrolling path (and its height preference) is kept for long lists.
+- **All-providers check**: rendered every service at once with mixed units (percent / tokens / requests), one to three windows and an over-80% row: 360x395pt, no scrolling. Locked in by `testEveryProviderAtOnceFitsWithoutScrollingOrOversizing`.
+- **Tests added**: scroll threshold, all-providers layout budget
+- All 332 tests passing
+
 ## Iteration 102: Action row on top, self-ticking refresh time
 - **Time updates on its own**: the relative time was computed during render, so it only advanced when something else redrew the popover — which is why it appeared to update on hover. The label is now wrapped in `TimelineView(.periodic(from:by: 1))` and `relativeTimeString(now:)` takes the timeline's date.
 - **Layout**: the action row (refresh status + Insights/Settings/Quit) moved to the top of the popover, separated from the service rows by `headerSpacing` 14 with no rule. Only one rule remains, between the services and the build/support line. Measured: action row at y=14, services at y=44, total height 136 for one service.
