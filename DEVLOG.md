@@ -10,8 +10,9 @@
 - **Claude plan caption**: Clarified in Settings that the Claude Code plan picker only labels the row — utilization always comes from the Anthropic OAuth API.
 - **Security — pack download path traversal**: `CESPPackDownloadService` now validates registry pack names and manifest file paths (`sanitizedPackName` / `sanitizedRelativePath`). A malicious manifest entry such as `../../../../.zshenv` previously wrote outside `~/.openpeon/packs`.
 - **Security — event socket hardening**: `NotifySocketListener` creates `~/.agentbar` with `0700`, `chmod`s the socket to `0600`, and drops clients whose buffered payload exceeds 1 MiB.
-- **Tests added**: `StatusBarAppearanceTests` (5), popover height clamping (3), `SettingsLayout` spacing, pack path sanitization (4)
-- All 300 tests passing
+- **Fix — Copilot gh CLI lookup**: A GUI-launched app inherits launchd's minimal `PATH`, so `/usr/bin/env gh` never found a Homebrew-installed CLI and Copilot silently fell back to "no token". `GHCLICommandConfiguration.resolved()` now probes `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin` and `~/.local/bin` before falling back to the PATH lookup.
+- **Tests added**: `StatusBarAppearanceTests` (5), popover height clamping (3), `SettingsLayout` spacing, pack path sanitization (4), gh CLI resolution (2)
+- All 302 tests passing
 
 ## Iteration 92: Align notification delivery and custom sound playback
 - **Notification ordering refactor**: `AgentNotifyNotificationService` now posts `UNNotificationRequest` first, then plays custom sound. This reduces timing skew between Notification Center card creation and audible feedback.

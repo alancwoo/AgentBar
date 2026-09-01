@@ -27,6 +27,27 @@ final class CopilotUsageProviderTests: XCTestCase {
         super.tearDown()
     }
 
+    func testGHCLIConfigurationPrefersInstalledBinaryOverPathLookup() {
+        let config = GHCLICommandConfiguration.resolved(
+            candidatePaths: ["/opt/homebrew/bin/gh", "/usr/local/bin/gh"],
+            isExecutable: { $0 == "/usr/local/bin/gh" }
+        )
+
+        XCTAssertEqual(config.executableURL.path, "/usr/local/bin/gh")
+        XCTAssertEqual(config.arguments, ["auth", "token"])
+    }
+
+    func testGHCLIConfigurationFallsBackToPathLookupWhenNoBinaryFound() {
+        let config = GHCLICommandConfiguration.resolved(
+            candidatePaths: ["/opt/homebrew/bin/gh"],
+            isExecutable: { _ in false }
+        )
+
+        XCTAssertEqual(config, GHCLICommandConfiguration.pathLookup)
+        XCTAssertEqual(config.executableURL.path, "/usr/bin/env")
+        XCTAssertEqual(config.arguments, ["gh", "auth", "token"])
+    }
+
     func testFetchesPremiumRequestUsage() async throws {
         let json = """
         {

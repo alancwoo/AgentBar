@@ -18,10 +18,38 @@ struct GHCLICommandConfiguration: Sendable, Equatable {
     let executableURL: URL
     let arguments: [String]
 
-    static let `default` = GHCLICommandConfiguration(
+    /// A GUI-launched app inherits launchd's minimal PATH (`/usr/bin:/bin:/usr/sbin:/sbin`),
+    /// so `env gh` cannot find a Homebrew-installed CLI. Probe the usual install
+    /// locations first and only fall back to a PATH lookup.
+    static var ghSearchPaths: [String] {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return [
+            "/opt/homebrew/bin/gh",
+            "/usr/local/bin/gh",
+            "/usr/bin/gh",
+            "\(home)/.local/bin/gh"
+        ]
+    }
+
+    static let pathLookup = GHCLICommandConfiguration(
         executableURL: URL(fileURLWithPath: "/usr/bin/env"),
         arguments: ["gh", "auth", "token"]
     )
+
+    static func resolved(
+        candidatePaths: [String] = ghSearchPaths,
+        isExecutable: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+    ) -> GHCLICommandConfiguration {
+        for path in candidatePaths where isExecutable(path) {
+            return GHCLICommandConfiguration(
+                executableURL: URL(fileURLWithPath: path),
+                arguments: ["auth", "token"]
+            )
+        }
+        return pathLookup
+    }
+
+    static var `default`: GHCLICommandConfiguration { resolved() }
 }
 
 // MARK: - Provider
