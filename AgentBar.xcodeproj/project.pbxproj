@@ -513,6 +513,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
 			);
 			name = "Embed Git Version Info";
 			outputFileListPaths = (

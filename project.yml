@@ -22,6 +22,10 @@ targets:
     postBuildScripts:
       - name: Embed Git Version Info
         basedOnDependencyAnalysis: false
+        # Declaring the built plist as an input orders this phase after
+        # ProcessInfoPlistFile, which would otherwise overwrite these keys.
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
         script: |
           set -euo pipefail
 
