@@ -166,6 +166,34 @@ final class DetailPopoverViewTests: XCTestCase {
         XCTAssertEqual(DetailPopoverView.resolvedVersionString(from: [:]), "unknown")
     }
 
+    func testServiceListHeightMatchesContentWhenItFits() {
+        let contentHeight: CGFloat = 120
+        XCTAssertEqual(
+            DetailPopoverView.serviceListHeight(forContentHeight: contentHeight),
+            contentHeight,
+            "A short service list should size the popover to its own content."
+        )
+    }
+
+    func testServiceListHeightIsCappedForLongLists() {
+        XCTAssertEqual(
+            DetailPopoverView.serviceListHeight(forContentHeight: 5_000),
+            DetailPopoverView.maxServiceListHeight,
+            "A long service list should scroll instead of growing the popover without bound."
+        )
+    }
+
+    func testServiceListHeightUsesMinimumBeforeMeasurement() {
+        XCTAssertEqual(
+            DetailPopoverView.serviceListHeight(forContentHeight: 0),
+            DetailPopoverView.minServiceListHeight
+        )
+        XCTAssertEqual(
+            DetailPopoverView.serviceListHeight(forContentHeight: 4),
+            DetailPopoverView.minServiceListHeight
+        )
+    }
+
     private func makeUsageRows(count: Int) -> [UsageData] {
         let services = ServiceType.allCases
         return (0..<count).map { index in
@@ -179,7 +207,7 @@ final class DetailPopoverViewTests: XCTestCase {
     ) -> (window: NSWindow, hostingView: NSHostingView<DetailPopoverView>) {
         let rootView = DetailPopoverView(viewModel: viewModel, openExternalURL: openExternalURL)
         let hostingView = NSHostingView(rootView: rootView)
-        let frame = NSRect(x: 0, y: 0, width: 320, height: 480)
+        let frame = NSRect(x: 0, y: 0, width: DetailPopoverView.popoverWidth, height: 700)
         hostingView.frame = frame
 
         let window = NSWindow(

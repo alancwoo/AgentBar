@@ -17,11 +17,46 @@ actor CESPPackDownloadService {
         self.fileManager = fileManager
     }
 
+    /// Registry-supplied names and manifest file paths are untrusted input.
+    /// Only a single, plain path component is accepted as a pack directory name.
+    static func sanitizedPackName(_ rawName: String) -> String? {
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isSafePathComponent(trimmed) else { return nil }
+        return trimmed
+    }
+
+    /// Accepts only relative paths that stay inside the pack directory.
+    /// Absolute paths, `~`, `.`/`..` components and empty segments are rejected.
+    static func sanitizedRelativePath(_ rawPath: String) -> String? {
+        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("/"), !trimmed.hasPrefix("~") else {
+            return nil
+        }
+        let components = trimmed.components(separatedBy: "/")
+        guard components.allSatisfy({ isSafePathComponent($0) }) else { return nil }
+        return components.joined(separator: "/")
+    }
+
+    private static func isSafePathComponent(_ component: String) -> Bool {
+        guard !component.isEmpty,
+              component != ".",
+              component != "..",
+              !component.contains("/"),
+              !component.contains("\\"),
+              !component.contains("\0") else {
+            return false
+        }
+        return true
+    }
+
     func downloadPack(
         _ pack: CESPRegistryPack,
         onProgress: (@Sendable (Double) -> Void)? = nil
     ) async throws -> String {
-        let packDir = Self.packsDirectory.appendingPathComponent(pack.name)
+        guard let packName = Self.sanitizedPackName(pack.name) else {
+            throw CESPRegistryError.downloadFailed("Unsafe pack name: \(pack.name)")
+        }
+        let packDir = Self.packsDirectory.appendingPathComponent(packName)
 
         // Download manifest
         let (manifestData, manifestResponse) = try await session.data(from: pack.manifestURL)
@@ -60,8 +95,12 @@ actor CESPPackDownloadService {
 
         // Download each sound file
         for soundFile in soundFiles {
-            let fileURL = pack.baseContentURL.appendingPathComponent(soundFile)
-            let localPath = packDir.appendingPathComponent(soundFile)
+            guard let relativePath = Self.sanitizedRelativePath(soundFile) else {
+                try? fileManager.removeItem(at: packDir)
+                throw CESPRegistryError.downloadFailed("Unsafe file path in manifest: \(soundFile)")
+            }
+            let fileURL = pack.baseContentURL.appendingPathComponent(relativePath)
+            let localPath = packDir.appendingPathComponent(relativePath)
 
             // Create subdirectories if needed (e.g., sounds/)
             let parentDir = localPath.deletingLastPathComponent()
@@ -73,13 +112,13 @@ actor CESPPackDownloadService {
                 let (fileData, fileResponse) = try await session.data(from: fileURL)
                 guard let httpResp = fileResponse as? HTTPURLResponse,
                       (200...299).contains(httpResp.statusCode) else {
-                    throw CESPRegistryError.downloadFailed("Failed to download \(soundFile)")
+                    throw CESPRegistryError.downloadFailed("Failed to download \(relativePath)")
                 }
                 try fileData.write(to: localPath)
             } catch {
                 // Clean up partial download on failure
                 try? fileManager.removeItem(at: packDir)
-                throw CESPRegistryError.downloadFailed(soundFile)
+                throw CESPRegistryError.downloadFailed(relativePath)
             }
 
             completedFiles += 1

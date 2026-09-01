@@ -25,6 +25,47 @@ final class ServiceTypeColorTests: XCTestCase {
     }
 }
 
+final class StatusBarAppearanceTests: XCTestCase {
+    private let suiteName = "StatusBarAppearanceTests"
+
+    private func makeDefaults() -> UserDefaults {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }
+
+    func testResolvesLabeledByDefault() {
+        XCTAssertEqual(StatusBarAppearance.resolve(from: makeDefaults()), .labeled)
+    }
+
+    func testResolvesCompactWhenStored() {
+        let defaults = makeDefaults()
+        defaults.set(StatusBarAppearance.compact.rawValue, forKey: StatusBarAppearance.defaultsKey)
+        XCTAssertEqual(StatusBarAppearance.resolve(from: defaults), .compact)
+    }
+
+    func testResolvesLabeledForUnknownStoredValue() {
+        let defaults = makeDefaults()
+        defaults.set("bogus", forKey: StatusBarAppearance.defaultsKey)
+        XCTAssertEqual(StatusBarAppearance.resolve(from: defaults), .labeled)
+    }
+
+    func testCompactHidesServiceLabelAndIsNarrower() {
+        XCTAssertTrue(StatusBarAppearance.labeled.showsServiceLabel)
+        XCTAssertFalse(StatusBarAppearance.compact.showsServiceLabel)
+        XCTAssertLessThan(
+            StatusBarAppearance.compact.statusItemLength,
+            StatusBarAppearance.labeled.statusItemLength
+        )
+    }
+
+    func testEveryAppearanceHasADisplayName() {
+        for appearance in StatusBarAppearance.allCases {
+            XCTAssertFalse(appearance.displayName.isEmpty)
+        }
+    }
+}
+
 final class StatusBarDisplayPlannerTests: XCTestCase {
     func testRanksServicesByHighestUsageScoreDescending() {
         let services = [

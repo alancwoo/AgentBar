@@ -24,6 +24,10 @@ final class NotifySocketListener: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.agentbar.socket-listener")
     var onEvent: (@Sendable (AgentNotifyEvent) -> Void)?
 
+    /// Upper bound on a single client's buffered payload, so a local process
+    /// cannot grow the listener's memory without bound.
+    private static let maxClientBufferBytes = 1 << 20  // 1 MiB
+
     private var serverFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
     private var _isListening = false
@@ -58,7 +62,11 @@ final class NotifySocketListener: @unchecked Sendable {
         _stop()
 
         let dir = (socketPath as NSString).deletingLastPathComponent
-        try? fileManager.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try? fileManager.createDirectory(
+            atPath: dir,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
 
         if fileManager.fileExists(atPath: socketPath) {
             try? fileManager.removeItem(atPath: socketPath)
@@ -103,6 +111,9 @@ final class NotifySocketListener: @unchecked Sendable {
             try? fileManager.removeItem(atPath: socketPath)
             return
         }
+
+        // Only this user may talk to the event socket.
+        _ = chmod(socketPath, 0o600)
 
         let flags = fcntl(fd, F_GETFL)
         _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK)
@@ -168,6 +179,11 @@ final class NotifySocketListener: @unchecked Sendable {
             let bytesRead = read(clientFD, &buf, buf.count)
             if bytesRead > 0 {
                 buffer.append(contentsOf: buf[0..<bytesRead])
+                if buffer.count > Self.maxClientBufferBytes {
+                    self?.logger.error("Dropping client: payload exceeded buffer limit.")
+                    readSource.cancel()
+                    self?.removeClient(clientFD)
+                }
             } else if bytesRead == 0 {
                 readSource.cancel()
                 self?.processBuffer(buffer)

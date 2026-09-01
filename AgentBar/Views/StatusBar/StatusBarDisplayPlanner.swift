@@ -1,6 +1,43 @@
 import Foundation
 import CoreGraphics
 
+/// How the menu bar item renders each service row.
+enum StatusBarAppearance: String, CaseIterable, Sendable {
+    /// Short service label (e.g. "CC") followed by the usage bar.
+    case labeled
+    /// Usage bar only — services are told apart by color.
+    case compact
+
+    static let defaultsKey = "statusBarAppearance"
+
+    static func resolve(from defaults: UserDefaults = .standard) -> StatusBarAppearance {
+        guard let rawValue = defaults.string(forKey: defaultsKey),
+              let appearance = StatusBarAppearance(rawValue: rawValue) else {
+            return .labeled
+        }
+        return appearance
+    }
+
+    var showsServiceLabel: Bool {
+        self == .labeled
+    }
+
+    /// Width of the `NSStatusItem`. Compact drops the label column entirely.
+    var statusItemLength: CGFloat {
+        switch self {
+        case .labeled: return 90
+        case .compact: return 46
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .labeled: return "Labels + bars"
+        case .compact: return "Bars only (compact)"
+        }
+    }
+}
+
 enum StatusBarDisplayPlanner {
     static let visibleRowCount = 3
     static let rowHeight: CGFloat = 6

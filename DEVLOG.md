@@ -2,6 +2,17 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 93: Compact menu bar style, HIG settings spacing, self-sizing popover
+- **Compact menu bar style**: Added `StatusBarAppearance` (`labeled` / `compact`, key `statusBarAppearance`). Compact drops the `CC`/`CX` short labels so services are distinguished by color only, and narrows the `NSStatusItem` from 90pt to 46pt. `StackedBarView` / `SingleBarView` take an `appearance` parameter; `StatusBarController` re-reads the setting and resizes the item on `Notification.Name.statusBarAppearanceChanged`.
+- **Settings picker**: New "Menu bar style" picker in Settings → Usage → General, posting `statusBarAppearanceChanged` on change.
+- **Settings window spacing**: Added `SettingsLayout` and padded the `TabView` (18pt top / 10pt sides / 10pt bottom). AppKit's tab control draws ~6pt above its assigned frame, so 18pt yields a 12pt clearance below the title bar instead of the tab strip sitting flush against it.
+- **Popover sizes to its contents**: `DetailPopoverView` dropped the fixed `height: 480` frame. The service list reports its height through `ServiceListContentHeightKey` and is clamped by `serviceListHeight(forContentHeight:)` (min 44, max 400, scrolls beyond that). `PopoverController` now sets `NSHostingController.sizingOptions = [.preferredContentSize]` instead of a fixed `contentSize`. One service renders at 320x214 instead of 320x480; six render at 320x554.
+- **Claude plan caption**: Clarified in Settings that the Claude Code plan picker only labels the row — utilization always comes from the Anthropic OAuth API.
+- **Security — pack download path traversal**: `CESPPackDownloadService` now validates registry pack names and manifest file paths (`sanitizedPackName` / `sanitizedRelativePath`). A malicious manifest entry such as `../../../../.zshenv` previously wrote outside `~/.openpeon/packs`.
+- **Security — event socket hardening**: `NotifySocketListener` creates `~/.agentbar` with `0700`, `chmod`s the socket to `0600`, and drops clients whose buffered payload exceeds 1 MiB.
+- **Tests added**: `StatusBarAppearanceTests` (5), popover height clamping (3), `SettingsLayout` spacing, pack path sanitization (4)
+- All 300 tests passing
+
 ## Iteration 92: Align notification delivery and custom sound playback
 - **Notification ordering refactor**: `AgentNotifyNotificationService` now posts `UNNotificationRequest` first, then plays custom sound. This reduces timing skew between Notification Center card creation and audible feedback.
 - **Custom sound preflight**: Added `NotifySoundManager.canPlay(for:service:)` so notification content can choose between custom path (`sound=nil`) and system default (`.default`) before posting.

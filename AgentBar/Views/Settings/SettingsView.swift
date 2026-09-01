@@ -4,10 +4,32 @@ extension Notification.Name {
     static let limitsChanged = Notification.Name("AgentBarLimitsChanged")
     static let notificationsSettingsChanged = Notification.Name("AgentBarNotificationsSettingsChanged")
     static let usageHistoryChanged = Notification.Name("AgentBarUsageHistoryChanged")
+    static let statusBarAppearanceChanged = Notification.Name("AgentBarStatusBarAppearanceChanged")
+}
+
+/// Window chrome metrics for the settings window.
+/// macOS HIG keeps a tab control clear of the title bar rather than flush against it.
+enum SettingsLayout {
+    static let contentWidth: CGFloat = 450
+    static let contentHeight: CGFloat = 750
+    /// AppKit's tab control draws ~6pt above the frame SwiftUI assigns it, so the
+    /// padding is the desired title-bar clearance plus that overflow.
+    static let tabBarTopPadding: CGFloat = 18
+    static let contentHorizontalPadding: CGFloat = 10
+    static let contentBottomPadding: CGFloat = 10
+
+    static var windowWidth: CGFloat {
+        contentWidth + contentHorizontalPadding * 2
+    }
+
+    static var windowHeight: CGFloat {
+        contentHeight + tabBarTopPadding + contentBottomPadding
+    }
 }
 
 struct SettingsView: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = true
+    @AppStorage(StatusBarAppearance.defaultsKey) private var statusBarAppearance = StatusBarAppearance.labeled.rawValue
     @AppStorage("refreshInterval") private var refreshInterval: Double = 60
     @AppStorage("notificationsEnabled") private var notificationsEnabled = false
     @AppStorage("notificationTaskCompletedEnabled") private var notificationTaskCompletedEnabled = true
@@ -79,7 +101,10 @@ struct SettingsView: View {
                 .tabItem { Label("History", systemImage: "calendar") }
                 .tag(SettingsTab.history)
         }
-        .frame(width: 450, height: 750)
+        .frame(width: SettingsLayout.contentWidth, height: SettingsLayout.contentHeight)
+        .padding(.top, SettingsLayout.tabBarTopPadding)
+        .padding(.horizontal, SettingsLayout.contentHorizontalPadding)
+        .padding(.bottom, SettingsLayout.contentBottomPadding)
         .onAppear {
             migrateLegacyClaudePlanIfNeeded()
             migrateLegacyCursorPlanIfNeeded()
@@ -129,6 +154,19 @@ struct SettingsView: View {
                     Text("120s").tag(120.0)
                     Text("300s").tag(300.0)
                 }
+
+                Picker("Menu bar style", selection: $statusBarAppearance) {
+                    ForEach(StatusBarAppearance.allCases, id: \.rawValue) { appearance in
+                        Text(appearance.displayName).tag(appearance.rawValue)
+                    }
+                }
+                .onChange(of: statusBarAppearance) { _ in
+                    notifyStatusBarAppearanceChanged()
+                }
+
+                Text("Compact hides the service labels (CC, CX, …) and shows only the colored usage bars, making the menu bar item narrower.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Claude Code") {
@@ -146,7 +184,7 @@ struct SettingsView: View {
                     notifyLimitsChanged()
                 }
 
-                Text("Usage is fetched from Anthropic OAuth API using Claude Code credentials")
+                Text("Usage is fetched from the Anthropic OAuth API using Claude Code credentials. The plan above is only the label shown next to \"Claude Code\" — percentages always come from the API.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -680,6 +718,10 @@ struct SettingsView: View {
 
     private func notifyLimitsChanged() {
         NotificationCenter.default.post(name: .limitsChanged, object: nil)
+    }
+
+    private func notifyStatusBarAppearanceChanged() {
+        NotificationCenter.default.post(name: .statusBarAppearanceChanged, object: nil)
     }
 
     struct TokenSaveUIOutcome: Equatable {

@@ -1,8 +1,24 @@
 import SwiftUI
 
+/// Height of the service list content, reported from the list itself so the
+/// popover can size itself to its contents instead of a fixed height.
+private struct ServiceListContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+@MainActor
+final class ServiceListHeightModel: ObservableObject {
+    @Published var contentHeight: CGFloat = 0
+}
+
 struct DetailPopoverView: View {
     @ObservedObject var viewModel: UsageViewModel
     @AppStorage(BuyMeACoffeeSettings.hideButtonKey) private var hideBuyMeACoffeeButton = false
+    @StateObject private var listHeightModel = ServiceListHeightModel()
     private let openExternalURL: (URL) -> Void
     private var displayUsageData: [UsageData] {
         Self.sortedForDisplay(viewModel.usageData)
@@ -39,18 +55,8 @@ struct DetailPopoverView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(displayUsageData) { data in
-                            ServiceDetailRow(data: data)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(maxWidth: .infinity)
+                serviceList
             }
-
-            Spacer(minLength: 0)
 
             if !hideBuyMeACoffeeButton {
                 // Buy Me a Coffee
@@ -90,7 +96,48 @@ struct DetailPopoverView: View {
             }
         }
         .padding()
-        .frame(width: 320, height: 480)
+        .frame(width: Self.popoverWidth)
+    }
+
+    /// Service rows grow with their content and only scroll once they would
+    /// make the popover taller than `maxServiceListHeight`.
+    private var serviceList: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(displayUsageData) { data in
+                    ServiceDetailRow(data: data)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: ServiceListContentHeightKey.self,
+                        value: proxy.size.height
+                    )
+                }
+            )
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: Self.serviceListHeight(forContentHeight: listHeightModel.contentHeight))
+        .onPreferenceChange(ServiceListContentHeightKey.self) { [listHeightModel] height in
+            Task { @MainActor in
+                guard listHeightModel.contentHeight != height else { return }
+                listHeightModel.contentHeight = height
+            }
+        }
+    }
+
+    static let popoverWidth: CGFloat = 320
+    /// Cap so a long service list can never push the popover off-screen.
+    static let maxServiceListHeight: CGFloat = 400
+    static let minServiceListHeight: CGFloat = 44
+
+    /// Clamps the measured list height into the popover's allowed range.
+    /// Returns the minimum height before the first measurement arrives.
+    static func serviceListHeight(forContentHeight contentHeight: CGFloat) -> CGFloat {
+        guard contentHeight > 0 else { return minServiceListHeight }
+        return min(max(contentHeight, minServiceListHeight), maxServiceListHeight)
     }
 
     private func openSettings() {

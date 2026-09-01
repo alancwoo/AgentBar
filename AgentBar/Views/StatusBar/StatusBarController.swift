@@ -11,14 +11,22 @@ final class StatusBarController {
     private let maxSetupRetries = 10
 
     private let viewModel: UsageViewModel
+    private let defaults: UserDefaults
+    private var appearance: StatusBarAppearance
 
-    init(viewModel: UsageViewModel) {
+    init(viewModel: UsageViewModel, defaults: UserDefaults = .standard) {
         self.viewModel = viewModel
+        self.defaults = defaults
+        self.appearance = StatusBarAppearance.resolve(from: defaults)
     }
 
     func setup() {
+        appearance = StatusBarAppearance.resolve(from: defaults)
+
         if statusItem == nil {
-            statusItem = NSStatusBar.system.statusItem(withLength: 90)
+            statusItem = NSStatusBar.system.statusItem(withLength: appearance.statusItemLength)
+        } else {
+            statusItem?.length = appearance.statusItemLength
         }
 
         guard let button = statusItem?.button else {
@@ -29,7 +37,11 @@ final class StatusBarController {
         setupRetryCount = 0
         hostingView?.removeFromSuperview()
 
-        let barView = StackedBarView(services: viewModel.usageData)
+        let barView = StackedBarView(
+            services: viewModel.usageData,
+            hasError: viewModel.lastError != nil,
+            appearance: appearance
+        )
         let hosting = NSHostingView(rootView: barView)
         hosting.frame = button.bounds.insetBy(dx: 3, dy: 0)
         hosting.autoresizingMask = [.width, .height]
@@ -42,10 +54,20 @@ final class StatusBarController {
                 .combineLatest(viewModel.$lastError)
                 .receive(on: RunLoop.main)
                 .sink { [weak self] data, error in
-                    self?.hostingView?.rootView = StackedBarView(
+                    guard let self else { return }
+                    self.hostingView?.rootView = StackedBarView(
                         services: data,
-                        hasError: error != nil
+                        hasError: error != nil,
+                        appearance: self.appearance
                     )
+                }
+                .store(in: &cancellables)
+
+            NotificationCenter.default
+                .publisher(for: .statusBarAppearanceChanged)
+                .receive(on: RunLoop.main)
+                .sink { [weak self] _ in
+                    self?.applyAppearance()
                 }
                 .store(in: &cancellables)
         }
@@ -54,6 +76,23 @@ final class StatusBarController {
         button.target = self
         button.action = #selector(statusItemClicked)
     }
+
+    /// Re-reads the menu bar style setting and resizes/redraws the status item.
+    func applyAppearance() {
+        appearance = StatusBarAppearance.resolve(from: defaults)
+        statusItem?.length = appearance.statusItemLength
+        hostingView?.rootView = StackedBarView(
+            services: viewModel.usageData,
+            hasError: viewModel.lastError != nil,
+            appearance: appearance
+        )
+    }
+
+    #if DEBUG
+    var currentAppearanceForTesting: StatusBarAppearance {
+        appearance
+    }
+    #endif
 
     private func retrySetup() {
         guard setupRetryCount < maxSetupRetries else { return }

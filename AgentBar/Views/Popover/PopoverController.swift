@@ -20,12 +20,17 @@ final class PopoverController {
 
     func show(relativeTo button: NSButton, viewModel: UsageViewModel) {
         let popover = NSPopover()
-        popover.contentSize = NSSize(width: 320, height: 350)
         popover.behavior = .transient
         popover.animates = true
-        popover.contentViewController = NSHostingController(
+
+        let hostingController = NSHostingController(
             rootView: DetailPopoverView(viewModel: viewModel)
         )
+        // Let the popover follow the SwiftUI content's own height instead of a
+        // fixed frame, so a short service list produces a short popover.
+        hostingController.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = hostingController
+        popover.contentSize = hostingController.view.fittingSize
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.delegate = PopoverDelegateHandler.shared
         self.popover = popover

@@ -14,8 +14,17 @@ final class PopoverControllerTests: XCTestCase {
         let state = currentPopoverState()
         XCTAssertTrue(state.isShown)
         XCTAssertNotNil(state.popover)
-        XCTAssertEqual(state.popover?.contentSize.width, 320)
-        XCTAssertEqual(state.popover?.contentSize.height, 350)
+        XCTAssertEqual(state.popover?.contentSize.width, DetailPopoverView.popoverWidth)
+        XCTAssertGreaterThan(
+            state.popover?.contentSize.height ?? 0,
+            0,
+            "Popover height should come from the SwiftUI content, not a fixed frame."
+        )
+        XCTAssertLessThanOrEqual(
+            state.popover?.contentSize.height ?? .greatestFiniteMagnitude,
+            DetailPopoverView.maxServiceListHeight + 300,
+            "Popover should stay within the content cap plus header/footer chrome."
+        )
         XCTAssertEqual(state.popover?.behavior, .transient)
         XCTAssertTrue(state.popover?.animates ?? false)
         XCTAssertTrue(state.popover?.contentViewController is NSHostingController<DetailPopoverView>)

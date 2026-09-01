@@ -3,6 +3,7 @@ import SwiftUI
 struct StackedBarView: View {
     let services: [UsageData]
     var hasError: Bool = false
+    var appearance: StatusBarAppearance = .labeled
 
     @State private var currentScrollIndex = 0
     @State private var isHovered = false
@@ -55,7 +56,7 @@ struct StackedBarView: View {
         ZStack(alignment: .top) {
             VStack(spacing: StatusBarDisplayPlanner.rowSpacing) {
                 ForEach(rankedServices) { usage in
-                    SingleBarView(usage: usage)
+                    SingleBarView(usage: usage, appearance: appearance)
                         .frame(height: StatusBarDisplayPlanner.rowHeight)
                 }
             }
@@ -113,13 +114,16 @@ struct StackedBarView: View {
 
 struct SingleBarView: View {
     let usage: UsageData
+    var appearance: StatusBarAppearance = .labeled
 
     var body: some View {
-        HStack(spacing: 2) {
-            Text(usage.service.shortName)
-                .font(.system(size: 6, weight: .medium, design: .rounded))
-                .foregroundStyle(usage.service.darkColor)
-                .frame(width: 14, alignment: .trailing)
+        HStack(spacing: appearance.showsServiceLabel ? 2 : 0) {
+            if appearance.showsServiceLabel {
+                Text(usage.service.shortName)
+                    .font(.system(size: 6, weight: .medium, design: .rounded))
+                    .foregroundStyle(usage.service.darkColor)
+                    .frame(width: 14, alignment: .trailing)
+            }
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {

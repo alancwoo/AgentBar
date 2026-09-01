@@ -29,6 +29,22 @@ final class SettingsViewBehaviorTests: XCTestCase {
         )
     }
 
+    func testSettingsLayoutKeepsTabBarClearOfTitleBar() {
+        XCTAssertGreaterThanOrEqual(
+            SettingsLayout.tabBarTopPadding,
+            8,
+            "Tab control should not sit flush against the window title bar."
+        )
+        XCTAssertEqual(
+            SettingsLayout.windowHeight,
+            SettingsLayout.contentHeight + SettingsLayout.tabBarTopPadding + SettingsLayout.contentBottomPadding
+        )
+        XCTAssertEqual(
+            SettingsLayout.windowWidth,
+            SettingsLayout.contentWidth + SettingsLayout.contentHorizontalPadding * 2
+        )
+    }
+
     func testSettingsTabSupportsHistoryCase() {
         XCTAssertEqual(SettingsTab.history, .history)
     }
