@@ -24,9 +24,9 @@ final class StatusBarController {
         appearance = StatusBarAppearance.resolve(from: defaults)
 
         if statusItem == nil {
-            statusItem = NSStatusBar.system.statusItem(withLength: appearance.statusItemLength)
+            statusItem = NSStatusBar.system.statusItem(withLength: currentItemLength())
         } else {
-            statusItem?.length = appearance.statusItemLength
+            statusItem?.length = currentItemLength()
         }
 
         guard let button = statusItem?.button else {
@@ -43,7 +43,10 @@ final class StatusBarController {
             appearance: appearance
         )
         let hosting = NSHostingView(rootView: barView)
-        hosting.frame = button.bounds.insetBy(dx: 3, dy: 0)
+        hosting.frame = button.bounds.insetBy(
+            dx: StatusBarDisplayPlanner.hostingInset(for: appearance),
+            dy: 0
+        )
         hosting.autoresizingMask = [.width, .height]
         button.addSubview(hosting)
         self.hostingView = hosting
@@ -54,12 +57,7 @@ final class StatusBarController {
                 .combineLatest(viewModel.$lastError)
                 .receive(on: RunLoop.main)
                 .sink { [weak self] data, error in
-                    guard let self else { return }
-                    self.hostingView?.rootView = StackedBarView(
-                        services: data,
-                        hasError: error != nil,
-                        appearance: self.appearance
-                    )
+                    self?.render(services: data, hasError: error != nil)
                 }
                 .store(in: &cancellables)
 
@@ -80,11 +78,33 @@ final class StatusBarController {
     /// Re-reads the menu bar style setting and resizes/redraws the status item.
     func applyAppearance() {
         appearance = StatusBarAppearance.resolve(from: defaults)
-        statusItem?.length = appearance.statusItemLength
+        render(services: viewModel.usageData, hasError: viewModel.lastError != nil)
+    }
+
+    /// Redraws the bar and resizes the status item, which in the compact style
+    /// depends on how many services are currently charted.
+    private func render(services: [UsageData], hasError: Bool) {
+        statusItem?.length = StatusBarDisplayPlanner.statusItemLength(
+            for: appearance,
+            serviceCount: StatusBarDisplayPlanner.orderedServices(from: services).count
+        )
+        if let button = statusItem?.button, let hostingView {
+            hostingView.frame = button.bounds.insetBy(
+                dx: StatusBarDisplayPlanner.hostingInset(for: appearance),
+                dy: 0
+            )
+        }
         hostingView?.rootView = StackedBarView(
-            services: viewModel.usageData,
-            hasError: viewModel.lastError != nil,
+            services: services,
+            hasError: hasError,
             appearance: appearance
+        )
+    }
+
+    private func currentItemLength() -> CGFloat {
+        StatusBarDisplayPlanner.statusItemLength(
+            for: appearance,
+            serviceCount: StatusBarDisplayPlanner.orderedServices(from: viewModel.usageData).count
         )
     }
 

@@ -50,13 +50,9 @@ final class StatusBarAppearanceTests: XCTestCase {
         XCTAssertEqual(StatusBarAppearance.resolve(from: defaults), .labeled)
     }
 
-    func testCompactHidesServiceLabelAndIsNarrower() {
+    func testCompactHidesServiceLabel() {
         XCTAssertTrue(StatusBarAppearance.labeled.showsServiceLabel)
         XCTAssertFalse(StatusBarAppearance.compact.showsServiceLabel)
-        XCTAssertLessThan(
-            StatusBarAppearance.compact.statusItemLength,
-            StatusBarAppearance.labeled.statusItemLength
-        )
     }
 
     func testEveryAppearanceHasADisplayName() {
@@ -87,6 +83,73 @@ final class StatusBarDisplayPlannerTests: XCTestCase {
 
         let ranked = StatusBarDisplayPlanner.rankedServices(from: services)
         XCTAssertEqual(ranked.map(\.service), [.claude, .codex])
+    }
+
+    func testCompactWidthGrowsOneColumnPerService() {
+        let single = StatusBarDisplayPlanner.statusItemLength(for: .compact, serviceCount: 1)
+        let triple = StatusBarDisplayPlanner.statusItemLength(for: .compact, serviceCount: 3)
+
+        XCTAssertEqual(
+            single,
+            StatusBarDisplayPlanner.columnWidth + StatusBarDisplayPlanner.horizontalInset * 2
+        )
+        XCTAssertEqual(
+            triple,
+            StatusBarDisplayPlanner.columnWidth * 3
+                + StatusBarDisplayPlanner.columnSpacing * 2
+                + StatusBarDisplayPlanner.horizontalInset * 2
+        )
+        XCTAssertLessThan(single, triple)
+    }
+
+    func testCompactSingleServiceIsFarNarrowerThanLabeled() {
+        let compact = StatusBarDisplayPlanner.statusItemLength(for: .compact, serviceCount: 1)
+        let labeled = StatusBarDisplayPlanner.statusItemLength(for: .labeled, serviceCount: 1)
+
+        XCTAssertEqual(labeled, StatusBarDisplayPlanner.labeledItemLength)
+        XCTAssertLessThan(compact, labeled / 4)
+    }
+
+    func testLabeledWidthIsIndependentOfServiceCount() {
+        XCTAssertEqual(
+            StatusBarDisplayPlanner.statusItemLength(for: .labeled, serviceCount: 1),
+            StatusBarDisplayPlanner.statusItemLength(for: .labeled, serviceCount: 6)
+        )
+    }
+
+    func testCompactFallsBackToGlyphWidthWithNoServices() {
+        XCTAssertEqual(
+            StatusBarDisplayPlanner.statusItemLength(for: .compact, serviceCount: 0),
+            StatusBarDisplayPlanner.emptyItemLength
+        )
+    }
+
+    func testOrderedServicesKeepsFixedServiceOrderRegardlessOfUsage() {
+        let services = [
+            makeUsage(service: .zai, fiveHourPct: 0.90),
+            makeUsage(service: .codex, fiveHourPct: 0.10),
+            makeUsage(service: .claude, fiveHourPct: 0.50)
+        ]
+
+        let ordered = StatusBarDisplayPlanner.orderedServices(from: services)
+        XCTAssertEqual(ordered.map(\.service), [.claude, .codex, .zai])
+    }
+
+    func testOrderedServicesIgnoresUnavailableServices() {
+        let services = [
+            makeUsage(service: .claude, fiveHourPct: 0.5),
+            makeUsage(service: .codex, fiveHourPct: 0.5, available: false)
+        ]
+
+        XCTAssertEqual(
+            StatusBarDisplayPlanner.orderedServices(from: services).map(\.service),
+            [.claude]
+        )
+    }
+
+    func testCompactHostingInsetIsZeroSoTinyItemsUseFullWidth() {
+        XCTAssertEqual(StatusBarDisplayPlanner.hostingInset(for: .compact), 0)
+        XCTAssertGreaterThan(StatusBarDisplayPlanner.hostingInset(for: .labeled), 0)
     }
 
     func testMaxScrollIndexIsZeroWhenServicesWithinVisibleCount() {

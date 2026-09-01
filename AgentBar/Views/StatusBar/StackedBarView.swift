@@ -23,6 +23,10 @@ struct StackedBarView: View {
         return "\(signature)#hover:\(isHovered ? 1 : 0)"
     }
 
+    private var columnServices: [UsageData] {
+        StatusBarDisplayPlanner.orderedServices(from: services)
+    }
+
     var body: some View {
         if rankedServices.isEmpty {
             HStack(spacing: 2) {
@@ -36,7 +40,10 @@ struct StackedBarView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 24, height: 20)
+            .frame(width: StatusBarDisplayPlanner.emptyItemLength, height: 20)
+        } else if appearance == .compact {
+            // Every service fits side by side, so there is nothing to scroll.
+            VerticalColumnsView(services: columnServices)
         } else {
             scrollingRows
                 .onHover { hovering in
@@ -48,7 +55,7 @@ struct StackedBarView: View {
                 .task(id: cycleTaskID) {
                     await runScrollLoop()
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, StatusBarDisplayPlanner.horizontalInset)
         }
     }
 
@@ -148,5 +155,52 @@ struct SingleBarView: View {
             }
         }
         .frame(height: StatusBarDisplayPlanner.rowHeight)
+    }
+}
+
+/// Compact style: one thin vertical column per service, filled bottom-up.
+struct VerticalColumnsView: View {
+    let services: [UsageData]
+
+    var body: some View {
+        HStack(spacing: StatusBarDisplayPlanner.columnSpacing) {
+            ForEach(services) { usage in
+                VerticalBarColumn(usage: usage)
+                    .frame(
+                        width: StatusBarDisplayPlanner.columnWidth,
+                        height: StatusBarDisplayPlanner.columnHeight
+                    )
+            }
+        }
+        .frame(height: StatusBarDisplayPlanner.viewportHeight)
+        .padding(.horizontal, StatusBarDisplayPlanner.horizontalInset)
+    }
+}
+
+struct VerticalBarColumn: View {
+    let usage: UsageData
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                // Background — visible outline when empty
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(usage.service.darkColor.opacity(0.15))
+
+                // Weekly usage (light color)
+                if let weekly = usage.weeklyUsage, weekly.percentage > 0 {
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(usage.service.lightColor)
+                        .frame(height: max(2, geo.size.height * weekly.percentage))
+                }
+
+                // 5-hour usage (dark color, overlaps weekly)
+                if usage.fiveHourUsage.percentage > 0 {
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(usage.service.darkColor)
+                        .frame(height: max(2, geo.size.height * usage.fiveHourUsage.percentage))
+                }
+            }
+        }
     }
 }

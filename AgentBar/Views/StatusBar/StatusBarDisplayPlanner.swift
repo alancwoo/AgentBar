@@ -22,14 +22,6 @@ enum StatusBarAppearance: String, CaseIterable, Sendable {
         self == .labeled
     }
 
-    /// Width of the `NSStatusItem`. Compact drops the label column entirely.
-    var statusItemLength: CGFloat {
-        switch self {
-        case .labeled: return 90
-        case .compact: return 46
-        }
-    }
-
     var displayName: String {
         switch self {
         case .labeled: return "Labels + bars"
@@ -43,6 +35,41 @@ enum StatusBarDisplayPlanner {
     static let rowHeight: CGFloat = 6
     static let rowSpacing: CGFloat = 1
     static let viewportHeight: CGFloat = 20
+
+    /// Width of the labeled style's status item, which is fixed because the
+    /// label + bar row is the same size no matter how many services there are.
+    static let labeledItemLength: CGFloat = 90
+
+    // Compact style: one thin vertical column per service, side by side.
+    static let columnWidth: CGFloat = 5
+    static let columnSpacing: CGFloat = 2
+    static let columnHeight: CGFloat = 12
+    static let horizontalInset: CGFloat = 2
+    /// Room for the placeholder/error glyph when there is nothing to chart.
+    static let emptyItemLength: CGFloat = 24
+
+    /// Inset between the status item button and the hosted SwiftUI bar. Compact
+    /// budgets its own inset in `statusItemLength`, so it fills the button.
+    static func hostingInset(for appearance: StatusBarAppearance) -> CGFloat {
+        switch appearance {
+        case .labeled: return 3
+        case .compact: return 0
+        }
+    }
+
+    /// Compact grows with the number of services, so a single service takes up
+    /// as little of the menu bar as possible.
+    static func statusItemLength(for appearance: StatusBarAppearance, serviceCount: Int) -> CGFloat {
+        switch appearance {
+        case .labeled:
+            return labeledItemLength
+        case .compact:
+            guard serviceCount > 0 else { return emptyItemLength }
+            let columns = CGFloat(serviceCount) * columnWidth
+            let gaps = CGFloat(serviceCount - 1) * columnSpacing
+            return columns + gaps + horizontalInset * 2
+        }
+    }
 
     static let topPriorityHoldSeconds: TimeInterval = 8
     static let scrollStepHoldSeconds: TimeInterval = 3
@@ -60,6 +87,18 @@ enum StatusBarDisplayPlanner {
                     return lhsScore > rhsScore
                 }
 
+                let lhsRank = serviceOrder.firstIndex(of: lhs.service) ?? serviceOrder.count
+                let rhsRank = serviceOrder.firstIndex(of: rhs.service) ?? serviceOrder.count
+                return lhsRank < rhsRank
+            }
+    }
+
+    /// Compact shows every service at once, so it keeps a stable service order
+    /// instead of the usage ranking that drives the scrolling labeled style.
+    static func orderedServices(from services: [UsageData]) -> [UsageData] {
+        services
+            .filter(\.isAvailable)
+            .sorted { lhs, rhs in
                 let lhsRank = serviceOrder.firstIndex(of: lhs.service) ?? serviceOrder.count
                 let rhsRank = serviceOrder.firstIndex(of: rhs.service) ?? serviceOrder.count
                 return lhsRank < rhsRank

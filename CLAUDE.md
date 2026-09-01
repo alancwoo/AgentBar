@@ -4,8 +4,8 @@ macOS menu bar app (Swift 6.0, macOS 13.0+) showing usage metrics for Claude Cod
 
 ## Language
 
-User communicates in Korean. Respond in Korean for conversation, English for code/commits/docs.
 
+User communicates in English, please also use English for code/commits/docs.
 ## Workflow Rules
 
 ### Before starting any task:

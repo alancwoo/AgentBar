@@ -2,6 +2,14 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 94: Bars-only style becomes vertical columns with adaptive width
+- **Vertical columns**: The compact ("Bars only") menu bar style now draws one thin vertical column per service side by side (`VerticalColumnsView` / `VerticalBarColumn`) instead of horizontal bars stacked vertically. Each column is 5x12pt, filled bottom-up: agent color at 15% for the track, light color for the 7d window, dark color for the 5h window.
+- **Adaptive status item width**: `StatusBarDisplayPlanner.statusItemLength(for:serviceCount:)` sizes the compact item as `count * 5 + (count - 1) * 2 + 4`, so one service is 9pt, three are 23pt and six are 44pt. Labeled stays a fixed 90pt. `StatusBarController.render(services:hasError:)` re-applies the length on every data update, not just on style changes.
+- **Stable ordering**: Compact uses `StatusBarDisplayPlanner.orderedServices(from:)` (fixed service order) rather than the usage ranking, since every service is visible at once and reordering columns by usage would make them jump. Compact also skips the scroll loop entirely.
+- **Hosting inset**: `hostingInset(for:)` keeps the labeled style's 3pt button inset while compact fills the button, so a 9pt item is not eaten by chrome.
+- **Tests added**: compact width math per service count, labeled width independence, empty-state fallback width, fixed compact ordering, unavailable-service filtering, hosting inset
+- All 309 tests passing
+
 ## Iteration 93: Compact menu bar style, HIG settings spacing, self-sizing popover
 - **Compact menu bar style**: Added `StatusBarAppearance` (`labeled` / `compact`, key `statusBarAppearance`). Compact drops the `CC`/`CX` short labels so services are distinguished by color only, and narrows the `NSStatusItem` from 90pt to 46pt. `StackedBarView` / `SingleBarView` take an `appearance` parameter; `StatusBarController` re-reads the setting and resizes the item on `Notification.Name.statusBarAppearanceChanged`.
 - **Settings picker**: New "Menu bar style" picker in Settings → Usage → General, posting `statusBarAppearanceChanged` on change.
