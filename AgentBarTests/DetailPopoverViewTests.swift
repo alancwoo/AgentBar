@@ -57,23 +57,37 @@ final class DetailPopoverViewTests: XCTestCase {
         withExtendedLifetime(rendered.window) {}
     }
 
-    func testEstimatedListHeightScalesWithRowCountAndShape() {
+    func testEstimatedListHeightScalesWithRowCount() {
         let single = DetailPopoverView.estimatedListHeight(for: [
             UsageData.mock(service: .claude, fiveHourPct: 0.1, weeklyPct: 0.1)
         ])
-        XCTAssertEqual(single, DetailPopoverView.dualMetricRowHeight)
+        XCTAssertEqual(
+            single,
+            max(DetailPopoverView.serviceRowHeight, DetailPopoverView.minServiceListHeight),
+            "A lone row is still floored at the minimum list height."
+        )
 
-        let weeklyless = UsageData(
-            service: .cursor,
-            fiveHourUsage: UsageMetric(used: 1, total: 10, unit: .requests, resetTime: nil),
-            weeklyUsage: nil,
+        let two = DetailPopoverView.estimatedListHeight(for: [
+            UsageData.mock(service: .claude, fiveHourPct: 0.1, weeklyPct: 0.1),
+            UsageData.mock(service: .codex, fiveHourPct: 0.1, weeklyPct: 0.1)
+        ])
+        XCTAssertEqual(
+            two,
+            DetailPopoverView.serviceRowHeight * 2 + DetailPopoverView.serviceRowSpacing
+        )
+
+        let withMonth = UsageData(
+            service: .claude,
+            fiveHourUsage: UsageMetric(used: 1, total: 100, unit: .percent, resetTime: nil),
+            weeklyUsage: UsageMetric(used: 1, total: 100, unit: .percent, resetTime: nil),
+            monthlyUsage: UsageMetric(used: 1, total: 100, unit: .percent, resetTime: nil),
             lastUpdated: Date(),
             isAvailable: true
         )
         XCTAssertEqual(
-            DetailPopoverView.estimatedListHeight(for: [weeklyless]),
-            DetailPopoverView.singleMetricRowHeight,
-            "A service with one window should be estimated shorter than one with two."
+            DetailPopoverView.estimatedListHeight(for: [withMonth]),
+            DetailPopoverView.serviceRowHeight + DetailPopoverView.extraChipRowHeight,
+            "A third window wraps onto a second chip line, making the row taller."
         )
 
         XCTAssertEqual(
@@ -101,37 +115,19 @@ final class DetailPopoverViewTests: XCTestCase {
     }
 
     func testBuyMeACoffeeActionOpensExpectedURL() {
-        withBuyMeACoffeeHidden(false) {
-            let viewModel = UsageViewModel(providers: [])
-            var openedURLs: [URL] = []
+        let viewModel = UsageViewModel(providers: [])
+        var openedURLs: [URL] = []
 
-            let view = DetailPopoverView(viewModel: viewModel) { url in
-                openedURLs.append(url)
-            }
-            view.triggerBMCForTesting()
-
-            XCTAssertEqual(
-                openedURLs.first?.absoluteString,
-                "https://buymeacoffee.com/_scari",
-                "Expected tapping Buy Me a Coffee to attempt opening the BMC support URL."
-            )
+        let view = DetailPopoverView(viewModel: viewModel) { url in
+            openedURLs.append(url)
         }
-    }
+        view.triggerBMCForTesting()
 
-    func testBuyMeACoffeeButtonCanBeHiddenFromSettings() {
-        withBuyMeACoffeeHidden(true) {
-            let viewModel = UsageViewModel(providers: [])
-            let view = DetailPopoverView(viewModel: viewModel)
-            XCTAssertFalse(view.isBMCButtonVisibleForTesting())
-        }
-    }
-
-    func testBuyMeACoffeeButtonVisibleWhenNotHidden() {
-        withBuyMeACoffeeHidden(false) {
-            let viewModel = UsageViewModel(providers: [])
-            let view = DetailPopoverView(viewModel: viewModel)
-            XCTAssertTrue(view.isBMCButtonVisibleForTesting())
-        }
+        XCTAssertEqual(
+            openedURLs.first?.absoluteString,
+            "https://buymeacoffee.com/_scari",
+            "Expected tapping Buy Me a Coffee to attempt opening the BMC support URL."
+        )
     }
 
     func testSortedForDisplayOrdersByHighestUsageDescending() {
@@ -235,6 +231,98 @@ final class DetailPopoverViewTests: XCTestCase {
         )
     }
 
+    func testChipsCoverEveryReportedWindowInBarOrder() {
+        let data = UsageData(
+            service: .claude,
+            fiveHourUsage: UsageMetric(used: 10, total: 100, unit: .percent, resetTime: nil),
+            weeklyUsage: UsageMetric(used: 20, total: 100, unit: .percent, resetTime: nil),
+            monthlyUsage: UsageMetric(used: 30, total: 100, unit: .percent, resetTime: nil),
+            lastUpdated: Date(),
+            isAvailable: true
+        )
+
+        let chips = ServiceDetailRow.chips(for: data)
+        XCTAssertEqual(chips.map(\.label), ["5h", "7d", "Mo"])
+        XCTAssertEqual(chips.map(\.id), ["primary", "weekly", "monthly"])
+    }
+
+    func testChipsOmitWindowsTheServiceDoesNotReport() {
+        let data = UsageData(
+            service: .cursor,
+            fiveHourUsage: UsageMetric(used: 10, total: 100, unit: .requests, resetTime: nil),
+            weeklyUsage: nil,
+            lastUpdated: Date(),
+            isAvailable: true
+        )
+
+        XCTAssertEqual(ServiceDetailRow.chips(for: data).count, 1)
+        XCTAssertEqual(ServiceDetailRow.chipRows(for: data).count, 1)
+    }
+
+    func testThirdWindowWrapsToASecondChipRow() {
+        let data = UsageData(
+            service: .claude,
+            fiveHourUsage: UsageMetric(used: 10, total: 100, unit: .percent, resetTime: nil),
+            weeklyUsage: UsageMetric(used: 20, total: 100, unit: .percent, resetTime: nil),
+            monthlyUsage: UsageMetric(used: 30, total: 100, unit: .percent, resetTime: nil),
+            lastUpdated: Date(),
+            isAvailable: true
+        )
+
+        let rows = ServiceDetailRow.chipRows(for: data)
+        XCTAssertEqual(rows.count, 2, "Three chips do not fit on one popover-width line.")
+        XCTAssertEqual(rows[0].count, 2)
+        XCTAssertEqual(rows[1].count, 1)
+    }
+
+    func testStackedBarHasOneTrackPerWindow() {
+        let twoWindows = UsageData.mock(service: .claude, fiveHourPct: 0.1, weeklyPct: 0.2)
+        XCTAssertEqual(MiniBarView.windowCount(for: twoWindows), 2)
+
+        let threeWindows = UsageData(
+            service: .claude,
+            fiveHourUsage: UsageMetric(used: 10, total: 100, unit: .percent, resetTime: nil),
+            weeklyUsage: UsageMetric(used: 20, total: 100, unit: .percent, resetTime: nil),
+            monthlyUsage: UsageMetric(used: 30, total: 100, unit: .percent, resetTime: nil),
+            lastUpdated: Date(),
+            isAvailable: true
+        )
+        XCTAssertEqual(MiniBarView.windowCount(for: threeWindows), 3)
+        XCTAssertGreaterThan(
+            MiniBarView.height(for: threeWindows),
+            MiniBarView.height(for: twoWindows),
+            "Each window gets its own track, so the bar grows with window count."
+        )
+    }
+
+    func testMetricChipHidesElapsedTimersAndFormatsCompactly() {
+        let expired = UsageMetric(
+            used: 1, total: 10, unit: .requests,
+            resetTime: Date().addingTimeInterval(-60)
+        )
+        XCTAssertNil(
+            MetricChip.remainingText(for: expired),
+            "A reset time in the past should not render a countdown."
+        )
+        XCTAssertNil(
+            MetricChip.remainingText(
+                for: UsageMetric(used: 1, total: 10, unit: .requests, resetTime: nil)
+            )
+        )
+
+        XCTAssertEqual(MetricChip.formatDuration(49 * 60), "49m")
+        XCTAssertEqual(MetricChip.formatDuration(6540), "1h49m")
+        XCTAssertEqual(MetricChip.formatDuration(285_000), "3d7h")
+    }
+
+    func testMetricChipTooltipCarriesExactCounts() {
+        let tokens = UsageMetric(used: 4_200_000, total: 10_000_000, unit: .tokens, resetTime: nil)
+        XCTAssertEqual(MetricChip.detailText(label: "5h", metric: tokens), "5h: 4.2M of 10.0M")
+
+        let percent = UsageMetric(used: 28, total: 100, unit: .percent, resetTime: nil)
+        XCTAssertEqual(MetricChip.detailText(label: "7d", metric: percent), "7d: 28% used")
+    }
+
     private func makeUsageRows(count: Int) -> [UsageData] {
         let services = ServiceType.allCases
         return (0..<count).map { index in
@@ -311,22 +399,5 @@ final class DetailPopoverViewTests: XCTestCase {
         return nil
     }
 
-    private func withBuyMeACoffeeHidden(
-        _ isHidden: Bool,
-        testBody: () -> Void
-    ) {
-        let defaults = UserDefaults.standard
-        let key = BuyMeACoffeeSettings.hideButtonKey
-        let previousValue = defaults.object(forKey: key)
-        defaults.set(isHidden, forKey: key)
-        defer {
-            if let previousValue {
-                defaults.set(previousValue, forKey: key)
-            } else {
-                defaults.removeObject(forKey: key)
-            }
-        }
-        testBody()
-    }
 
 }

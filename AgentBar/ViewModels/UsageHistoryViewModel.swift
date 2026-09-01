@@ -83,12 +83,14 @@ struct UsageHistoryTrendPoint: Sendable {
 @MainActor
 final class UsageHistoryViewModel: ObservableObject {
     @Published var selectedWindow: UsageHistoryWindow = .primary
-    @Published var selectedRangeWeeks: Int = 8
+    /// Fixed range: the picker was removed in favour of a single useful window.
+    @Published var selectedRangeWeeks: Int = 12
 
     @Published private(set) var availableServices: [ServiceType] = []
     @Published private(set) var servicePanels: [UsageHistoryServicePanel] = []
 
     private let store: UsageHistoryStoreProtocol
+    private let defaults: UserDefaults
     private var calendar: Calendar
     private let nowProvider: @Sendable () -> Date
     private var cancellables: Set<AnyCancellable> = []
@@ -107,9 +109,11 @@ final class UsageHistoryViewModel: ObservableObject {
     init(
         store: UsageHistoryStoreProtocol = UsageHistoryStore(),
         calendar: Calendar = Calendar(identifier: .gregorian),
-        nowProvider: @escaping @Sendable () -> Date = Date.init
+        nowProvider: @escaping @Sendable () -> Date = Date.init,
+        defaults: UserDefaults = .standard
     ) {
         self.store = store
+        self.defaults = defaults
         var configuredCalendar = calendar
         configuredCalendar.firstWeekday = 1
         self.calendar = configuredCalendar
@@ -145,9 +149,13 @@ final class UsageHistoryViewModel: ObservableObject {
         let allServices = await store.availableServices(since: gridStart, until: now)
         guard !isStale(generation) else { return }
 
+        // Only chart providers that are currently switched on.
+        let enabledServices = allServices.filter {
+            defaults.bool(forKey: $0.enabledDefaultsKey, defaultValue: true)
+        }
         let services = selectedWindow == .secondary
-            ? allServices.filter(\.hasFiveHourSevenDayStructure)
-            : allServices
+            ? enabledServices.filter(\.hasFiveHourSevenDayStructure)
+            : enabledServices
         let orderedServices = services.sorted {
             Self.serviceOrderIndex(for: $0) < Self.serviceOrderIndex(for: $1)
         }

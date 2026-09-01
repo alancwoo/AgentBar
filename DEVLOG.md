@@ -2,6 +2,17 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 97: Legend chips, stacked bar tracks, leaner insights
+- **Reset icon removed**: The countdown no longer carries an `arrow.counterclockwise` glyph, and durations are compact (`1h49m`, `3d7h`).
+- **Legend chips**: `MetricRow` became `MetricChip` — a coloured dot, window label, percentage and time left, on one line under the service name. The dot colour keys each window to its track in the bar; exact counts moved to the tooltip via `MetricChip.detailText(label:metric:)`.
+- **Stacked bar**: `MiniBarView` now draws one 3pt track per window (5h / 7d / Mo) instead of overlapping fills, which previously hid the 7d segment whenever 5h ran ahead of it. Bar height follows `MiniBarView.height(for:)`, and the bar stretches to fill the header row.
+- **Chip wrapping**: three chips do not fit on a 320pt line, so `ServiceDetailRow.chipRows(for:)` wraps at two per row; `estimatedRowHeight(for:)` accounts for the extra line.
+- **Third window plumbed through**: `UsageData.monthlyUsage` (optional), `ServiceType.monthColor` / `monthlyLabel`. `ClaudeUsageResponse.monthlyMetric` fills it from `extra_usage` when that is enabled — the Anthropic OAuth endpoint exposes no monthly subscription window, only `five_hour`, `seven_day`, null per-model variants and the pay-as-you-go `extra_usage` block (verified against the live response).
+- **Buy me a Coffee is permanent**: always shown, right-aligned beneath the footer buttons. The `hideBuyMeACoffeeButton` setting and its Support section were removed.
+- **Insights**: only providers enabled in Settings are charted (`ServiceType.enabledDefaultsKey`); the range picker is gone and the range is fixed at 12 weeks; Active Days moved from the panel header into the summary row under the charts; the trend chart now expands to fill the width beside the heatmap and is labelled "Daily peak usage".
+- **Tests added**: chip composition and wrapping (3), stacked-bar track count, chip duration/tooltip formatting (2), month-aware row estimate
+- All 325 tests passing
+
 ## Iteration 96: Popover chrome merge, collapsible settings, Insights window
 - **History pollution fixed (root cause)**: `UsageViewModel(providers:)` defaults to a real `UsageHistoryStore()`, so every unit test run recorded mock samples (7,000,000 tokens, ratio 0.5, several services at one timestamp) into `~/Library/Application Support/AgentBar/usage-history.json`. `UsageHistoryStore.defaultFileURL` now redirects to a temp directory when `XCTestConfigurationFilePath` is set.
 - **Inactive providers hidden from insights**: `UsageHistoryViewModel` filters panels through `hasRecordedUsage(_:)`, so a configured-but-never-used provider no longer gets an all-zero chart.

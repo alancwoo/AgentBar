@@ -63,7 +63,6 @@ struct SettingsView: View {
     @AppStorage("cursorMonthlyLimit") private var cursorMonthlyLimit: Double = 500
 
     @AppStorage("zaiEnabled") private var zaiEnabled = true
-    @AppStorage(BuyMeACoffeeSettings.hideButtonKey) private var hideBuyMeACoffeeButton = false
 
     @State private var selectedTab: SettingsTab = .usage
     #if AGENTBAR_NOTIFICATION_SOUNDS
@@ -349,12 +348,6 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Support") {
-                Toggle("Hide Buy me a Coffee link", isOn: $hideBuyMeACoffeeButton)
-                Text("Hides the support link in the popover footer if you've already donated.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
         .formStyle(.grouped)
     }

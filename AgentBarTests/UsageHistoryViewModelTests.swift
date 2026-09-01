@@ -12,6 +12,15 @@ final class UsageHistoryViewModelTests: XCTestCase {
         calendar = gregorian
     }
 
+    /// Insights only charts providers that are switched on, so tests use an
+    /// isolated domain where every provider keeps its default (enabled) state.
+    private static func allProvidersEnabledDefaults() -> UserDefaults {
+        let suiteName = "UsageHistoryViewModelTests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else { return .standard }
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }
+
     @MainActor
     func testHeatmapCellCountAndLevelMapping() async {
         let now = makeDate(2026, 2, 19, 12, 0)
@@ -25,7 +34,12 @@ final class UsageHistoryViewModelTests: XCTestCase {
         ]
 
         let store = MockUsageHistoryStore(dayRecordsStorage: records, secondarySamplesStorage: [])
-        let vm = UsageHistoryViewModel(store: store, calendar: calendar, nowProvider: { now })
+        let vm = UsageHistoryViewModel(
+            store: store,
+            calendar: calendar,
+            nowProvider: { now },
+            defaults: Self.allProvidersEnabledDefaults()
+        )
         vm.selectedRangeWeeks = 4
         vm.selectedWindow = .primary
         await vm.refresh()
@@ -57,7 +71,12 @@ final class UsageHistoryViewModelTests: XCTestCase {
         ]
 
         let store = MockUsageHistoryStore(dayRecordsStorage: records, secondarySamplesStorage: [])
-        let vm = UsageHistoryViewModel(store: store, calendar: calendar, nowProvider: { now })
+        let vm = UsageHistoryViewModel(
+            store: store,
+            calendar: calendar,
+            nowProvider: { now },
+            defaults: Self.allProvidersEnabledDefaults()
+        )
         vm.selectedRangeWeeks = 4
         vm.selectedWindow = .primary
         await vm.refresh()
@@ -97,7 +116,12 @@ final class UsageHistoryViewModelTests: XCTestCase {
         ]
 
         let store = MockUsageHistoryStore(dayRecordsStorage: records, secondarySamplesStorage: samples)
-        let vm = UsageHistoryViewModel(store: store, calendar: calendar, nowProvider: { now })
+        let vm = UsageHistoryViewModel(
+            store: store,
+            calendar: calendar,
+            nowProvider: { now },
+            defaults: Self.allProvidersEnabledDefaults()
+        )
         vm.selectedWindow = .secondary
         await vm.refresh()
 
@@ -139,7 +163,12 @@ final class UsageHistoryViewModelTests: XCTestCase {
         ]
 
         let store = MockUsageHistoryStore(dayRecordsStorage: records, secondarySamplesStorage: samples)
-        let vm = UsageHistoryViewModel(store: store, calendar: calendar, nowProvider: { now })
+        let vm = UsageHistoryViewModel(
+            store: store,
+            calendar: calendar,
+            nowProvider: { now },
+            defaults: Self.allProvidersEnabledDefaults()
+        )
         vm.selectedWindow = .secondary
         await vm.refresh()
 
@@ -163,7 +192,12 @@ final class UsageHistoryViewModelTests: XCTestCase {
         ]
 
         let store = MockUsageHistoryStore(dayRecordsStorage: records, secondarySamplesStorage: [])
-        let vm = UsageHistoryViewModel(store: store, calendar: calendar, nowProvider: { now })
+        let vm = UsageHistoryViewModel(
+            store: store,
+            calendar: calendar,
+            nowProvider: { now },
+            defaults: Self.allProvidersEnabledDefaults()
+        )
         vm.selectedWindow = .primary
         await vm.refresh()
 
@@ -189,7 +223,12 @@ final class UsageHistoryViewModelTests: XCTestCase {
             dayRecordsStorage: records,
             secondarySamplesStorage: []
         )
-        let vm = UsageHistoryViewModel(store: store, calendar: calendar, nowProvider: { now })
+        let vm = UsageHistoryViewModel(
+            store: store,
+            calendar: calendar,
+            nowProvider: { now },
+            defaults: Self.allProvidersEnabledDefaults()
+        )
         await vm.refresh()
 
         await store.setDelayOnNextAvailableServicesCall(nanoseconds: 200_000_000)

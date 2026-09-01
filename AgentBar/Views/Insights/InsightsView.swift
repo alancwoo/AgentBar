@@ -44,7 +44,7 @@ struct InsightsView: View {
     private var guideText: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(Self.windowExplanation(for: viewModel.selectedWindow))
-            Text("Each heatmap tile is one day; each consistency tile is one reset cycle.")
+            Text("Left: one tile per day, shaded by that day's peak usage. Right: the same daily peaks as a line. Consistency tiles are one per completed reset cycle.")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -72,14 +72,11 @@ struct InsightsView: View {
             .pickerStyle(.segmented)
             .frame(width: 240)
 
-            Picker("Range", selection: $viewModel.selectedRangeWeeks) {
-                Text("4 weeks").tag(4)
-                Text("8 weeks").tag(8)
-                Text("12 weeks").tag(12)
-            }
-            .frame(width: 180)
-
             Spacer()
+
+            Text("Last 12 weeks")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -95,9 +92,6 @@ struct InsightsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("Active days: \(panel.usageFrequencyDays)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
 
             Text("Daily usage")
@@ -135,7 +129,6 @@ struct InsightsView: View {
                 }
             }
 
-            Spacer(minLength: 10)
             trendChartSection(panel)
         }
     }
@@ -165,11 +158,16 @@ struct InsightsView: View {
 
     private func trendChartSection(_ panel: UsageHistoryServicePanel) -> some View {
         VStack(alignment: .leading, spacing: 4) {
+            Text("Daily peak usage")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
             UsageTrendLineChartView(
                 points: panel.trendPoints,
                 service: panel.service
             )
-            .frame(width: 190, height: heatmapGridHeight)
+            .frame(maxWidth: .infinity)
+            .frame(height: heatmapGridHeight)
 
             HStack(spacing: 6) {
                 Text(panel.trendPoints.first.map { dateString($0.date) } ?? "-")
@@ -187,11 +185,12 @@ struct InsightsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(width: 200, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func dailySummarySection(_ panel: UsageHistoryServicePanel) -> some View {
         HStack(spacing: 14) {
+            summaryItem(title: "Active Days", value: "\(panel.usageFrequencyDays)")
             summaryItem(title: "Limit Hit Days", value: "\(panel.dailySummary.limitHitDays)")
             summaryItem(title: "Near Limit Days", value: "\(panel.dailySummary.nearLimitDays)")
             summaryItem(

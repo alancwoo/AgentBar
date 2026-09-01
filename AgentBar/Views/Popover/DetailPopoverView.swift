@@ -17,7 +17,6 @@ final class ServiceListHeightModel: ObservableObject {
 
 struct DetailPopoverView: View {
     @ObservedObject var viewModel: UsageViewModel
-    @AppStorage(BuyMeACoffeeSettings.hideButtonKey) private var hideBuyMeACoffeeButton = false
     @StateObject private var listHeightModel = ServiceListHeightModel()
     private let openExternalURL: (URL) -> Void
     private var displayUsageData: [UsageData] {
@@ -88,17 +87,15 @@ struct DetailPopoverView: View {
                 )
             }
 
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 Text("AgentBar \(Self.versionString)")
-                if !hideBuyMeACoffeeButton {
-                    Text("-")
-                    Button(action: openBMC) {
-                        Text("Buy me a Coffee")
-                            .underline()
-                    }
-                    .buttonStyle(.plain)
-                    .help("Support AgentBar")
+                Spacer(minLength: 8)
+                Button(action: openBMC) {
+                    Text("Buy me a Coffee")
+                        .underline()
                 }
+                .buttonStyle(.plain)
+                .help("Support AgentBar")
             }
             .font(.caption2)
             .foregroundStyle(.tertiary)
@@ -159,8 +156,13 @@ struct DetailPopoverView: View {
     static let minServiceListHeight: CGFloat = 44
     static let serviceRowSpacing: CGFloat = 12
     /// Approximate rendered heights, used only for the first layout pass.
-    static let dualMetricRowHeight: CGFloat = 70
-    static let singleMetricRowHeight: CGFloat = 55
+    static let serviceRowHeight: CGFloat = 38
+    static let extraChipRowHeight: CGFloat = 16
+
+    static func estimatedRowHeight(for data: UsageData) -> CGFloat {
+        let chipRows = ServiceDetailRow.chipRows(for: data).count
+        return serviceRowHeight + CGFloat(max(0, chipRows - 1)) * extraChipRowHeight
+    }
 
     /// Clamps the measured list height into the popover's allowed range.
     /// Until the first measurement arrives it uses `estimate`, so the popover
@@ -178,9 +180,7 @@ struct DetailPopoverView: View {
     /// Row-count based guess at the list height, before SwiftUI reports the real one.
     static func estimatedListHeight(for services: [UsageData]) -> CGFloat {
         guard !services.isEmpty else { return minServiceListHeight }
-        let rows = services.reduce(CGFloat.zero) { total, data in
-            total + (data.weeklyUsage == nil ? singleMetricRowHeight : dualMetricRowHeight)
-        }
+        let rows = services.reduce(CGFloat.zero) { $0 + estimatedRowHeight(for: $1) }
         let spacing = CGFloat(services.count - 1) * serviceRowSpacing
         return min(max(rows + spacing, minServiceListHeight), maxServiceListHeight)
     }
@@ -224,10 +224,6 @@ struct DetailPopoverView: View {
     func triggerBMCForTesting() {
         openBMC()
     }
-
-    func isBMCButtonVisibleForTesting() -> Bool {
-        !hideBuyMeACoffeeButton
-    }
     #endif
 
     static func resolvedVersionString(from info: [String: Any]?) -> String {
@@ -267,89 +263,158 @@ struct ServiceDetailRow: View {
     let data: UsageData
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Circle()
-                    .fill(data.service.darkColor)
-                    .frame(width: 8, height: 8)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
                 Text(data.service.rawValue)
                     .font(.subheadline.weight(.medium))
+                    .fixedSize()
                 if let planName = data.planName {
                     Text(planName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .fixedSize()
                 }
-                Spacer()
+                Spacer(minLength: 10)
                 MiniBarView(data: data)
-                    .frame(width: 60, height: 8)
+                    .frame(height: MiniBarView.height(for: data))
+                    .frame(minWidth: 90, maxWidth: .infinity)
             }
 
-            MetricRow(label: data.service.fiveHourLabel, metric: data.fiveHourUsage)
-            if let weekly = data.weeklyUsage {
-                MetricRow(label: data.service.weeklyLabel, metric: weekly)
+            // Legend: the dot colour maps each window to its bar track.
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(Array(Self.chipRows(for: data).enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: 10) {
+                        ForEach(row) { chip in
+                            MetricChip(
+                                color: chip.color,
+                                label: chip.label,
+                                metric: chip.metric
+                            )
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 }
 
-struct MetricRow: View {
+extension ServiceDetailRow {
+    struct Chip: Identifiable {
+        let id: String
+        let color: Color
+        let label: String
+        let metric: UsageMetric
+    }
+
+    static func chips(for data: UsageData) -> [Chip] {
+        var result = [
+            Chip(
+                id: "primary",
+                color: data.service.darkColor,
+                label: data.service.fiveHourLabel,
+                metric: data.fiveHourUsage
+            )
+        ]
+        if let weekly = data.weeklyUsage {
+            result.append(
+                Chip(
+                    id: "weekly",
+                    color: data.service.lightColor,
+                    label: data.service.weeklyLabel,
+                    metric: weekly
+                )
+            )
+        }
+        if let monthly = data.monthlyUsage {
+            result.append(
+                Chip(
+                    id: "monthly",
+                    color: data.service.monthColor,
+                    label: data.service.monthlyLabel,
+                    metric: monthly
+                )
+            )
+        }
+        return result
+    }
+
+    /// Two chips is all that fits on one popover-width line, so a third window
+    /// wraps rather than being clipped.
+    static let maxChipsPerRow = 2
+
+    static func chipRows(for data: UsageData) -> [[Chip]] {
+        let all = chips(for: data)
+        guard all.count > maxChipsPerRow else { return [all] }
+        return stride(from: 0, to: all.count, by: maxChipsPerRow).map {
+            Array(all[$0..<min($0 + maxChipsPerRow, all.count)])
+        }
+    }
+}
+
+/// One window of a service: colour key, name, usage and time left in its cycle.
+struct MetricChip: View {
+    let color: Color
     let label: String
     let metric: UsageMetric
 
     var body: some View {
-        HStack {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
             Text(label)
-                .font(.caption)
                 .foregroundStyle(.secondary)
-                .frame(width: 30, alignment: .leading)
-            // Percent metrics carry no used/total counts, so the trailing
-            // percentage column already says everything there is to say.
-            if metric.unit != .percent {
-                Text(formatValue(metric.used, unit: metric.unit))
-                    .font(.caption.monospacedDigit())
-                Text("/")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(formatValue(metric.total, unit: metric.unit))
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if let reset = metric.resetTime {
-                let remaining = reset.timeIntervalSinceNow
-                if remaining > 0 {
-                    Text(formatDuration(remaining))
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.secondary)
-                }
-            }
             Text("\(Int(metric.percentage * 100))%")
-                .font(.caption.monospacedDigit())
+                .monospacedDigit()
                 .foregroundStyle(metric.percentage > 0.8 ? .red : .primary)
-                .frame(width: 30, alignment: .trailing)
+            if let remaining = Self.remainingText(for: metric) {
+                Text("- \(remaining)")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(.caption2)
+        .lineLimit(1)
+        .fixedSize()
+        .help(Self.detailText(label: label, metric: metric))
+    }
+
+    /// Time until this window resets, or nil once it has passed.
+    static func remainingText(for metric: UsageMetric) -> String? {
+        guard let reset = metric.resetTime else { return nil }
+        let remaining = reset.timeIntervalSinceNow
+        guard remaining > 0 else { return nil }
+        return formatDuration(remaining)
+    }
+
+    /// Exact counts live in the tooltip so the row itself stays readable.
+    static func detailText(label: String, metric: UsageMetric) -> String {
+        switch metric.unit {
+        case .percent:
+            return "\(label): \(Int(metric.percentage * 100))% used"
+        default:
+            return "\(label): \(formatValue(metric.used, unit: metric.unit)) of \(formatValue(metric.total, unit: metric.unit))"
         }
     }
 
-    private func formatDuration(_ interval: TimeInterval) -> String {
+    static func formatDuration(_ interval: TimeInterval) -> String {
         let totalMinutes = Int(interval) / 60
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
         if hours >= 24 {
             let days = hours / 24
             let remainHours = hours % 24
-            return "\(days)d \(remainHours)h"
+            return "\(days)d\(remainHours)h"
         }
         if hours > 0 {
-            return "\(hours)h \(minutes)m"
+            return "\(hours)h\(minutes)m"
         }
         return "\(minutes)m"
     }
 
-    private func formatValue(_ value: Double, unit: UsageUnit) -> String {
+    static func formatValue(_ value: Double, unit: UsageUnit) -> String {
         switch unit {
         case .dollars:
             return String(format: "$%.2f", value)
@@ -371,20 +436,43 @@ struct MetricRow: View {
 struct MiniBarView: View {
     let data: UsageData
 
+    static let trackHeight: CGFloat = 3
+    static let trackSpacing: CGFloat = 1.5
+
+    /// Height needed for one track per window this service reports.
+    static func height(for data: UsageData) -> CGFloat {
+        let tracks = CGFloat(windowCount(for: data))
+        return tracks * trackHeight + max(0, tracks - 1) * trackSpacing
+    }
+
+    static func windowCount(for data: UsageData) -> Int {
+        1 + (data.weeklyUsage == nil ? 0 : 1) + (data.monthlyUsage == nil ? 0 : 1)
+    }
+
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.gray.opacity(0.2))
-                if let weekly = data.weeklyUsage, weekly.percentage > 0 {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(data.service.lightColor)
-                        .frame(width: geo.size.width * weekly.percentage)
-                }
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(data.service.darkColor)
-                    .frame(width: geo.size.width * data.fiveHourUsage.percentage)
+        VStack(spacing: Self.trackSpacing) {
+            track(ratio: data.fiveHourUsage.percentage, color: data.service.darkColor)
+            if let weekly = data.weeklyUsage {
+                track(ratio: weekly.percentage, color: data.service.lightColor)
+            }
+            if let monthly = data.monthlyUsage {
+                track(ratio: monthly.percentage, color: data.service.monthColor)
             }
         }
+    }
+
+    private func track(ratio: Double, color: Color) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: Self.trackHeight / 2)
+                    .fill(Color.gray.opacity(0.2))
+                if ratio > 0 {
+                    RoundedRectangle(cornerRadius: Self.trackHeight / 2)
+                        .fill(color)
+                        .frame(width: max(2, geo.size.width * ratio))
+                }
+            }
+        }
+        .frame(height: Self.trackHeight)
     }
 }

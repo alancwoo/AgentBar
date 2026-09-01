@@ -33,6 +33,11 @@ enum ServiceType: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    /// Backmost stacked-bar segment, for the monthly window.
+    var monthColor: Color {
+        lightColor.opacity(0.45)
+    }
+
     var shortName: String {
         switch self {
         case .claude:  "CC"
@@ -53,6 +58,10 @@ enum ServiceType: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    var monthlyLabel: String {
+        "Mo"
+    }
+
     var weeklyLabel: String {
         switch self {
         case .zai: "MCP"
@@ -63,6 +72,19 @@ enum ServiceType: String, CaseIterable, Codable, Sendable {
     /// Whether this service uses the standard 5h / 7d dual-window structure.
     var hasFiveHourSevenDayStructure: Bool {
         fiveHourLabel == "5h" && weeklyLabel == "7d"
+    }
+
+    /// UserDefaults key holding this provider's on/off switch.
+    var enabledDefaultsKey: String {
+        switch self {
+        case .claude:  "claudeEnabled"
+        case .codex:   "codexEnabled"
+        case .gemini:  "geminiEnabled"
+        case .copilot: "copilotEnabled"
+        case .cursor:  "cursorEnabled"
+        case .opencode: "opencodeEnabled"
+        case .zai:     "zaiEnabled"
+        }
     }
 
     var keychainAccount: String {

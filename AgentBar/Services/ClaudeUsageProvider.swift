@@ -13,11 +13,23 @@ struct ClaudeOAuthToken: Decodable, Sendable {
     let subscriptionType: String?
 }
 
+/// Pay-as-you-go credits. This is the only monthly figure the usage endpoint
+/// exposes — subscriptions themselves report just the 5h and 7d windows.
+struct ClaudeExtraUsage: Decodable, Sendable {
+    let is_enabled: Bool?
+    let utilization: Double?
+}
+
 struct ClaudeUsageResponse: Decodable, Sendable {
     private let windows: [String: ClaudeUsageWindow]
+    let extraUsage: ClaudeExtraUsage?
 
-    init(windows: [String: ClaudeUsageWindow] = [:]) {
+    init(
+        windows: [String: ClaudeUsageWindow] = [:],
+        extraUsage: ClaudeExtraUsage? = nil
+    ) {
         self.windows = windows
+        self.extraUsage = extraUsage
     }
 
     init(from decoder: Decoder) throws {
@@ -30,6 +42,18 @@ struct ClaudeUsageResponse: Decodable, Sendable {
             }
         }
         self.windows = parsed
+        self.extraUsage = DynamicCodingKey(stringValue: "extra_usage")
+            .flatMap { try? container.decode(ClaudeExtraUsage.self, forKey: $0) }
+    }
+
+    /// Monthly metric, present only while extra usage is switched on.
+    var monthlyMetric: UsageMetric? {
+        guard let extraUsage,
+              extraUsage.is_enabled == true,
+              let utilization = extraUsage.utilization else {
+            return nil
+        }
+        return UsageMetric(used: utilization, total: 100, unit: .percent, resetTime: nil)
     }
 
     func mergedWindow(for baseKey: String) -> ClaudeUsageWindow? {
@@ -153,6 +177,7 @@ final class ClaudeUsageProvider: UsageProviderProtocol, @unchecked Sendable {
             service: .claude,
             fiveHourUsage: fiveHour,
             weeklyUsage: sevenDay,
+            monthlyUsage: usageResponse.monthlyMetric,
             lastUpdated: Date(),
             isAvailable: true,
             planName: planName
