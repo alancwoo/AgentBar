@@ -28,7 +28,7 @@ struct FirstRunView: View {
             footer
         }
         .padding(24)
-        .frame(width: 520, height: 640)
+        .frame(width: 520, height: 540)
         .task {
             detected = await ProviderDetection.detect()
             selection.services = detected
@@ -37,13 +37,8 @@ struct FirstRunView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text("Welcome to AgentBar")
-                .font(.title2.weight(.semibold))
-            Text("Pick what to track. Everything here can be changed later in Settings.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
+        Text("Welcome to AgentBar")
+            .font(.title2.weight(.semibold))
     }
 
     // MARK: - Services
@@ -71,16 +66,12 @@ struct FirstRunView: View {
                     serviceRow(service)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.primary.opacity(0.05))
             )
-
-            Text("Ticked ones were found on this Mac. Tracking a service reads its local logs or credentials.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -151,11 +142,6 @@ struct FirstRunView: View {
 
                 Text(appearance.displayName)
                     .font(.callout)
-                Text(appearance.summary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
             .padding(12)
@@ -193,10 +179,10 @@ struct FirstRunView: View {
     // MARK: - Preferences
 
     private var preferencesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Preferences")
-
+        HStack(spacing: 24) {
             Toggle("Launch at login", isOn: $selection.launchAtLogin)
+
+            Spacer()
 
             Picker("Refresh every", selection: $selection.refreshInterval) {
                 Text("30 seconds").tag(30.0)
@@ -204,15 +190,12 @@ struct FirstRunView: View {
                 Text("2 minutes").tag(120.0)
                 Text("5 minutes").tag(300.0)
             }
-            .frame(maxWidth: 260)
+            .fixedSize()
         }
     }
 
     private var footer: some View {
         HStack {
-            Text("\(selection.services.count) of \(FirstRunSettings.selectableServices.count) selected")
-                .font(.caption)
-                .foregroundStyle(.secondary)
             Spacer()
             Button("Get Started") {
                 onFinish(selection)

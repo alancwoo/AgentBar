@@ -230,14 +230,6 @@ struct SettingsView: View {
                 .onChange(of: statusBarAppearance) { _ in
                     notifyStatusBarAppearanceChanged()
                 }
-
-                Text("Compact (Vertical) shows one colored column per agent and no labels, taking the least menu bar space. Extended (Horizontal) shows labelled rows.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Button("Run Setup Again…") {
-                    FirstRunWindowController.shared.showApplyingChoices()
-                }
             }
 
             Section("Detection") {
@@ -423,6 +415,12 @@ struct SettingsView: View {
                 LabeledContent("Version", value: DetailPopoverView.versionString)
                 Link("This fork on GitHub", destination: AboutLinks.fork)
                 Link("Original project by scari", destination: AboutLinks.upstream)
+            }
+
+            Section {
+                Button("Run Setup Again…") {
+                    FirstRunWindowController.shared.showApplyingChoices()
+                }
             }
         }
         .formStyle(.grouped)

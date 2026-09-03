@@ -28,13 +28,6 @@ enum StatusBarAppearance: String, CaseIterable, Sendable {
         case .compact: return "Compact (Vertical)"
         }
     }
-
-    var summary: String {
-        switch self {
-        case .labeled: return "Labelled rows, three at a time"
-        case .compact: return "One colour per agent, narrowest"
-        }
-    }
 }
 
 enum StatusBarDisplayPlanner {

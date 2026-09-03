@@ -244,21 +244,42 @@ final class DetailPopoverViewTests: XCTestCase {
         XCTAssertEqual(ServiceDetailRow.chips(for: data).count, 1)
     }
 
-    func testWindowRowKeepsTheResetColumnWhenThereIsNoResetTime() {
-        let noReset = UsageMetric(used: 1, total: 10, unit: .requests, resetTime: nil)
+    func testHourglassFillsAsTheWindowRunsDown() {
+        let fiveHours: TimeInterval = 5 * 3600
         XCTAssertEqual(
-            UsageWindowRow.resetText(for: noReset),
-            "",
-            "An empty string keeps the column width so bars stay aligned."
+            UsageWindowRow.hourglassSymbol(remaining: fiveHours, windowLength: fiveHours),
+            "hourglass.tophalf.filled",
+            "A window that just reset has all its sand on top."
         )
+        XCTAssertEqual(
+            UsageWindowRow.hourglassSymbol(remaining: fiveHours / 2, windowLength: fiveHours),
+            "hourglass"
+        )
+        XCTAssertEqual(
+            UsageWindowRow.hourglassSymbol(remaining: 600, windowLength: fiveHours),
+            "hourglass.bottomhalf.filled",
+            "Nearly reset: the sand has run to the bottom."
+        )
+        XCTAssertEqual(
+            UsageWindowRow.hourglassSymbol(remaining: 600, windowLength: nil),
+            "hourglass",
+            "Unknown window length falls back to the neutral glyph."
+        )
+    }
 
-        // Exact durations are covered by the formatDuration tests; asserting a
-        // literal here races the clock as the countdown ticks down.
-        let future = UsageMetric(
-            used: 1, total: 10, unit: .requests,
-            resetTime: Date().addingTimeInterval(6540)
+    func testWindowLengthsFollowTheLabels() {
+        XCTAssertEqual(UsageWindowRow.windowLength(forLabel: "5h"), 5 * 3600)
+        XCTAssertEqual(UsageWindowRow.windowLength(forLabel: "7d"), 7 * 86400)
+        XCTAssertEqual(UsageWindowRow.windowLength(forLabel: "1d"), 86400)
+        XCTAssertEqual(UsageWindowRow.windowLength(forLabel: "Mo"), 30 * 86400)
+        XCTAssertNil(UsageWindowRow.windowLength(forLabel: "??"))
+    }
+
+    func testResetColumnWidthIsIconPlusTime() {
+        XCTAssertEqual(
+            UsageWindowRow.resetWidth,
+            UsageWindowRow.resetIconWidth + 3 + UsageWindowRow.resetTimeWidth
         )
-        XCTAssertTrue(UsageWindowRow.resetText(for: future).hasPrefix("Resets in 1h4"))
     }
 
     func testMetricChipHidesElapsedTimersAndFormatsCompactly() {

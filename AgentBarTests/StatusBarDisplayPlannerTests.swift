@@ -62,9 +62,6 @@ final class StatusBarAppearanceTests: XCTestCase {
     func testAppearanceNamesDescribeTheirOrientation() {
         XCTAssertEqual(StatusBarAppearance.compact.displayName, "Compact (Vertical)")
         XCTAssertEqual(StatusBarAppearance.labeled.displayName, "Extended (Horizontal)")
-        for appearance in StatusBarAppearance.allCases {
-            XCTAssertFalse(appearance.summary.isEmpty)
-        }
     }
 }
 

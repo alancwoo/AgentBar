@@ -2,6 +2,23 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 109: Leaner setup window, hourglass reset column
+- **Setup window**: assistants box spans the full width; the header subtitle, the services
+  caption and the style-card summaries are gone (`StatusBarAppearance.summary` removed); launch
+  at login and refresh interval share one line with no "Preferences" heading; the "N of 6
+  selected" footer text is gone. Window height 640 -> 540.
+- **Settings**: the Compact/Extended caption under the style picker is removed, and "Run Setup
+  Again…" moved into its own section at the bottom of the Usage panel.
+- **Reset column**: "Resets in …" repeated on every row and its left edge drifted with the
+  string length. It is now an hourglass at a fixed position plus a right-aligned time
+  (`resetIconWidth` 12 + `resetTimeWidth` 42, down from 96). `hourglassSymbol(remaining:windowLength:)`
+  picks top-filled / plain / bottom-filled by how far the window has run, using
+  `windowLength(forLabel:)` (5h, 1d, 7d, Mo/MCP = 30d). Windows without a reset keep an empty
+  column so bars stay aligned; the full phrase lives in the tooltip.
+- **Tests**: hourglass thresholds, window lengths by label, column width; obsolete "Resets in"
+  text tests replaced
+- All 390 tests passing
+
 ## Iteration 108: In-app updates from GitHub Releases, tag-driven CI release
 - **Update check**: `AppUpdateChecker` reads `releases/latest` from this fork and
   `AppVersion` compares the numeric core of tags component-wise (`v0.10` > `v0.8`; a bare number

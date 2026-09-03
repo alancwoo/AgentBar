@@ -465,8 +465,13 @@ struct UsageWindowRow: View {
     static let dotSize: CGFloat = 6
     static let labelWidth: CGFloat = 24
     static let percentWidth: CGFloat = 32
-    static let resetWidth: CGFloat = 96
+    static let resetIconWidth: CGFloat = 12
+    static let resetTimeWidth: CGFloat = 42
     static let barHeight: CGFloat = 6
+
+    /// Total width of the reset column, kept even when a window has no reset
+    /// time so the bars stay aligned.
+    static var resetWidth: CGFloat { resetIconWidth + 3 + resetTimeWidth }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -487,21 +492,56 @@ struct UsageWindowRow: View {
                 .frame(height: Self.barHeight)
                 .frame(maxWidth: .infinity)
 
-            Text(Self.resetText(for: chip.metric))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .frame(width: Self.resetWidth, alignment: .trailing)
+            resetColumn
         }
         .font(.caption2)
         .lineLimit(1)
         .help(Self.detailText(label: chip.label, metric: chip.metric))
     }
 
-    /// Empty rather than nil, so the column keeps its width and the bars stay
-    /// aligned for services whose window has no reset time.
-    static func resetText(for metric: UsageMetric) -> String {
-        guard let remaining = remainingText(for: metric) else { return "" }
-        return "Resets in \(remaining)"
+    /// Hourglass that fills as the window runs down, then the time left —
+    /// numbers right-aligned so the column reads as a table.
+    @ViewBuilder
+    private var resetColumn: some View {
+        if let remaining = Self.remainingText(for: chip.metric) {
+            HStack(spacing: 3) {
+                Image(systemName: Self.hourglassSymbol(
+                    remaining: chip.metric.resetTime.map { $0.timeIntervalSinceNow } ?? 0,
+                    windowLength: Self.windowLength(forLabel: chip.label)
+                ))
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+                .frame(width: Self.resetIconWidth)
+                Text(remaining)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .frame(width: Self.resetTimeWidth, alignment: .trailing)
+            }
+            .help("Resets in \(remaining)")
+        } else {
+            Color.clear
+                .frame(width: Self.resetWidth, height: 1)
+        }
+    }
+
+    /// Nominal length of a window by its label, for the hourglass fill.
+    static func windowLength(forLabel label: String) -> TimeInterval? {
+        switch label {
+        case "5h": return 5 * 3600
+        case "1d": return 24 * 3600
+        case "7d": return 7 * 24 * 3600
+        case "Mo", "MCP": return 30 * 24 * 3600
+        default: return nil
+        }
+    }
+
+    /// Top-heavy early in the window, empty-topped late; plain when unknown.
+    static func hourglassSymbol(remaining: TimeInterval, windowLength: TimeInterval?) -> String {
+        guard let windowLength, windowLength > 0 else { return "hourglass" }
+        let elapsedFraction = 1 - min(max(remaining / windowLength, 0), 1)
+        if elapsedFraction < 1.0 / 3.0 { return "hourglass.tophalf.filled" }
+        if elapsedFraction < 2.0 / 3.0 { return "hourglass" }
+        return "hourglass.bottomhalf.filled"
     }
 
     /// Time until this window resets, or nil once it has passed.
