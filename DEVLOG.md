@@ -2,6 +2,26 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 104: First-launch setup, renamed menu bar styles
+- **First-run window**: `FirstRunView` / `FirstRunWindowController` present a one-screen setup on a
+  clean install — per-assistant checkboxes with "Enable all", menu bar style (live previews of the
+  real `StackedBarView`, not static images), launch at login and refresh interval. It has no close
+  button, since dismissing it without choosing would leave every provider off.
+- **Nothing enabled behind the user's back**: providers default to enabled when their key is absent,
+  so a first launch tracked all six and could prompt for credentials the user never asked to share.
+  `AppDelegate` now calls `FirstRunSettings.seedDisabledProviders()` before monitoring starts and
+  hands control to the setup window.
+- **Detection**: `ProviderDetection.detect()` runs every provider's `isConfigured()` in a task group
+  so locally configured assistants come pre-ticked.
+- **Upgrade guard**: `needsFirstRun(in:)` treats any already-written preference (`launchAtLogin`, or
+  any provider key) as an existing install, marks setup complete and skips the window — verified
+  against the live install, which kept its settings untouched.
+- **Styles renamed** to `Compact (Vertical)` and `Extended (Horizontal)`, each with a `summary`
+  line, and the default for new installs is now Compact.
+- **Tests added**: `FirstRunSettingsTests` (8) covering the upgrade guard, seeding, apply and
+  defaults; appearance default and naming tests updated
+- All 340 tests passing
+
 ## Iteration 103: Ruleless popover, scroll only on overflow
 - **Footer rule removed**: the popover now separates bands with space alone — `contentPadding` 14 edges, `headerSpacing` 14 under the action row, `sectionSpacing` 12 above the build line.
 - **Scroll view only when needed**: `needsScrolling(for:)` compares the deterministic row estimate against `maxServiceListHeight`, so the normal case renders a plain `VStack` that sizes itself exactly and drops an unnecessary `NSScrollView`. The scrolling path (and its height preference) is kept for long lists.

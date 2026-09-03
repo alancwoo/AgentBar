@@ -29,7 +29,7 @@ enum SettingsLayout {
 
 struct SettingsView: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = true
-    @AppStorage(StatusBarAppearance.defaultsKey) private var statusBarAppearance = StatusBarAppearance.labeled.rawValue
+    @AppStorage(StatusBarAppearance.defaultsKey) private var statusBarAppearance = StatusBarAppearance.compact.rawValue
     @AppStorage("refreshInterval") private var refreshInterval: Double = 60
     @AppStorage("notificationsEnabled") private var notificationsEnabled = false
     @AppStorage("notificationTaskCompletedEnabled") private var notificationTaskCompletedEnabled = true
@@ -181,7 +181,7 @@ struct SettingsView: View {
                     notifyStatusBarAppearanceChanged()
                 }
 
-                Text("Compact hides the service labels (CC, CX, …) and shows only the colored usage bars, making the menu bar item narrower.")
+                Text("Compact (Vertical) shows one colored column per agent and no labels, taking the least menu bar space. Extended (Horizontal) shows labelled rows.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
