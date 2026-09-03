@@ -557,6 +557,35 @@ final class UsageViewModelTests: XCTestCase {
         }
     }
 
+
+    func testActivityMonitorHidesToolsWithoutRecentUse() async {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try! FileManager.default.createDirectory(at: home.appendingPathComponent(".grok/logs"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        try! "x".write(to: home.appendingPathComponent(".grok/logs/unified.jsonl"), atomically: true, encoding: .utf8)
+
+        let detector = ProviderActivityDetector(homeDirectory: home, secretExists: { _ in false })
+        let grok = MockUsageProvider(serviceType: .grok, result: .success(UsageData.mock(service: .grok)))
+        let codex = MockUsageProvider(serviceType: .codex, result: .success(UsageData.mock(service: .codex)))
+
+        let vm = UsageViewModel(providers: [codex, grok], activityMonitor: ProviderActivityMonitor(detector: detector))
+        await vm.fetchAllUsage()
+
+        XCTAssertEqual(vm.usageData.map(\.service), [.grok], "Codex has no local activity and must be filtered out.")
+        XCTAssertEqual(codex.fetchCount, 0)
+        XCTAssertEqual(grok.fetchCount, 1)
+    }
+
+    func testWithoutActivityMonitorAllInjectedProvidersAreFetched() async {
+        let grok = MockUsageProvider(serviceType: .grok, result: .success(UsageData.mock(service: .grok)))
+        let codex = MockUsageProvider(serviceType: .codex, result: .success(UsageData.mock(service: .codex)))
+
+        let vm = UsageViewModel(providers: [codex, grok])
+        await vm.fetchAllUsage()
+
+        XCTAssertEqual(vm.usageData.map(\.service), [.codex, .grok])
+    }
+
 }
 
 private enum StubSaveError: LocalizedError {

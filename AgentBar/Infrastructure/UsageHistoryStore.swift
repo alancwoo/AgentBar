@@ -559,7 +559,7 @@ actor UsageHistoryStore: UsageHistoryStoreProtocol {
     }
 
     private static func serviceOrderIndex(for service: ServiceType) -> Int {
-        let order: [ServiceType] = [.claude, .codex, .gemini, .copilot, .cursor, .opencode, .zai]
+        let order: [ServiceType] = [.claude, .codex, .gemini, .copilot, .cursor, .grok, .opencode, .zai]
         return order.firstIndex(of: service) ?? Int.max
     }
 }

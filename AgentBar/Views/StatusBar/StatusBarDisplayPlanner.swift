@@ -93,7 +93,7 @@ enum StatusBarDisplayPlanner {
     static let scrollStepHoldSeconds: TimeInterval = 3
     static let scrollTransitionSeconds: TimeInterval = 1.2
 
-    private static let serviceOrder: [ServiceType] = [.claude, .codex, .gemini, .copilot, .cursor, .opencode, .zai]
+    private static let serviceOrder: [ServiceType] = [.claude, .codex, .gemini, .copilot, .cursor, .grok, .opencode, .zai]
 
     static func rankedServices(from services: [UsageData]) -> [UsageData] {
         services

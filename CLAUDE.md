@@ -79,6 +79,7 @@ AgentBarTests/   Unit tests per provider + ViewModel + utilities
 | GitHub Copilot | GitHub API (`/copilot_internal/user`) | requests | PAT from Keychain, monthly premium requests, weeklyUsage=nil |
 | Cursor | Cursor API (`/api/usage`) + local SQLite | requests | JWT from `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`, weeklyUsage=nil |
 | Z.ai | REST API (`/api/monitor/usage/quota/limit`) | percent (5h) / requests (MCP) | TOKENS_LIMIT=5h, TIME_LIMIT=monthly MCP |
+| Grok | Local log (`~/.grok/logs/unified.jsonl`, last `billing: fetched credits config` line) | percent | Weekly SuperGrok credits; period rolled forward when stale; plan from `subscriptionTier`; weeklyUsage=nil |
 
 ## Key Conventions
 
@@ -86,6 +87,7 @@ AgentBarTests/   Unit tests per provider + ViewModel + utilities
 - `weeklyUsage` is optional (`UsageMetric?`) — services with a single window set it to nil
 - `UsageUnit` has `.tokens`, `.requests`, `.dollars`, `.percent` — MetricRow renders differently for each
 - When a provider fetch fails, ViewModel returns zero-usage data (bar stays visible)
-- Service display order: Claude, Codex, Gemini, Copilot, Cursor, Z.ai
+- Service display order: Claude, Codex, Gemini, Copilot, Cursor, Grok, Z.ai
+- Activity detection (`ProviderActivityDetector`): providers are only fetched when their local footprint was touched in the last 30 days (`providerAutoDetectEnabled`, default on). Add a `Probe` list for every new local-file provider.
 - API keys stored in Keychain via `KeychainManager` (service: "com.agentbar.apikeys")
 - External data/claims should be fact-checked against actual API responses before implementing

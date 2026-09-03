@@ -265,7 +265,7 @@ struct DetailPopoverView: View {
     private static let bmcSupportURL = URL(string: "https://buymeacoffee.com/_scari")!
 
     static func sortedForDisplay(_ usageData: [UsageData]) -> [UsageData] {
-        let serviceOrder: [ServiceType] = [.claude, .codex, .gemini, .copilot, .cursor, .opencode, .zai]
+        let serviceOrder: [ServiceType] = [.claude, .codex, .gemini, .copilot, .cursor, .grok, .opencode, .zai]
         return usageData.sorted { lhs, rhs in
             let lhsScore = max(lhs.fiveHourUsage.percentage, lhs.weeklyUsage?.percentage ?? 0)
             let rhsScore = max(rhs.fiveHourUsage.percentage, rhs.weeklyUsage?.percentage ?? 0)

@@ -62,7 +62,12 @@ struct SettingsView: View {
     @AppStorage("cursorPlan") private var cursorPlan: String = CursorPlan.pro.rawValue
     @AppStorage("cursorMonthlyLimit") private var cursorMonthlyLimit: Double = 500
 
+    @AppStorage("grokEnabled") private var grokEnabled = true
+
     @AppStorage("zaiEnabled") private var zaiEnabled = true
+
+    @AppStorage(ProviderActivityDetector.autoDetectDefaultsKey) private var providerAutoDetectEnabled = true
+    @State private var providerActivity: [ServiceType: ProviderActivity] = [:]
 
     @State private var selectedTab: SettingsTab = .usage
     #if AGENTBAR_NOTIFICATION_SOUNDS
@@ -107,6 +112,7 @@ struct SettingsView: View {
             migrateLegacyCopilotManualPATIfNeeded()
             loadAPIKeys()
             refreshHookConfigurationStatus()
+            refreshProviderActivity()
         }
         .alert(item: $activeTokenSaveAlert) { alert in
             switch alert {
@@ -139,6 +145,7 @@ struct SettingsView: View {
     /// only while the provider is enabled so the list stays scannable.
     private func providerSection<Content: View>(
         title: String,
+        service: ServiceType,
         isEnabled: Binding<Bool>,
         @ViewBuilder content: () -> Content
     ) -> some View {
@@ -151,8 +158,53 @@ struct SettingsView: View {
                 notifyLimitsChanged()
             }
 
+            if let note = activityNote(for: service) {
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             if isEnabled.wrappedValue {
                 content()
+            }
+        }
+    }
+
+    // MARK: - Activity detection
+
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
+    /// One line under each provider toggle saying whether the tool was found
+    /// and used recently, so a hidden bar entry is never a mystery.
+    private func activityNote(for service: ServiceType) -> String? {
+        guard let activity = providerActivity[service] else { return nil }
+        let days = ProviderActivityDetector.defaultActivityWindowDays
+
+        if activity.isActive {
+            if let last = activity.lastActivity {
+                let when = Self.relativeDateFormatter.localizedString(for: last, relativeTo: Date())
+                return "Detected — last used \(when)."
+            }
+            return "Detected on this Mac."
+        }
+
+        let reason = activity.lastActivity != nil
+            ? "No activity in the last \(days) days"
+            : "Not found on this Mac"
+        return providerAutoDetectEnabled
+            ? "\(reason) — hidden from the menu bar while auto-detect is on."
+            : "\(reason)."
+    }
+
+    private func refreshProviderActivity() {
+        Task.detached(priority: .utility) {
+            let detected = ProviderActivityDetector().detectAll()
+            await MainActor.run {
+                providerActivity = detected
             }
         }
     }
@@ -186,7 +238,28 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            providerSection(title: "Claude Code", isEnabled: $claudeEnabled) {
+            Section("Detection") {
+                Toggle(
+                    "Only show tools used in the last \(ProviderActivityDetector.defaultActivityWindowDays) days",
+                    isOn: $providerAutoDetectEnabled
+                )
+                .onChange(of: providerAutoDetectEnabled) { _ in
+                    notifyLimitsChanged()
+                }
+
+                HStack {
+                    Text("AgentBar looks for recent activity in each tool's local session files, so a stale login or a one-off trial does not take up space in the menu bar. Turn this off to show every enabled tool.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Re-scan") {
+                        refreshProviderActivity()
+                        notifyLimitsChanged()
+                    }
+                }
+            }
+
+            providerSection(title: "Claude Code", service: .claude, isEnabled: $claudeEnabled) {
                 Picker("Plan", selection: $claudePlan) {
                     Text("Auto (from Claude Code)").tag(ClaudePlan.autoRawValue)
                     ForEach(ClaudePlan.allCases, id: \.rawValue) { plan in
@@ -202,7 +275,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            providerSection(title: "OpenAI Codex", isEnabled: $codexEnabled) {
+            providerSection(title: "OpenAI Codex", service: .codex, isEnabled: $codexEnabled) {
                 Picker("Plan", selection: $codexPlan) {
                     ForEach(CodexPlan.allCases, id: \.rawValue) { plan in
                         Text(plan.rawValue).tag(plan.rawValue)
@@ -249,7 +322,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            providerSection(title: "Google Gemini", isEnabled: $geminiEnabled) {
+            providerSection(title: "Google Gemini", service: .gemini, isEnabled: $geminiEnabled) {
                 HStack {
                     Text("Daily request limit:")
                     TextField("", value: $geminiDailyLimit, format: .number)
@@ -266,7 +339,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            providerSection(title: "GitHub Copilot", isEnabled: $copilotEnabled) {
+            providerSection(title: "GitHub Copilot", service: .copilot, isEnabled: $copilotEnabled) {
                 Text("Plan is auto-detected from GitHub API. Token is auto-read from gh CLI (gh auth token).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -294,7 +367,7 @@ struct SettingsView: View {
                 .font(.caption)
             }
 
-            providerSection(title: "Cursor", isEnabled: $cursorEnabled) {
+            providerSection(title: "Cursor", service: .cursor, isEnabled: $cursorEnabled) {
                 Picker("Plan", selection: $cursorPlan) {
                     ForEach(CursorPlan.allCases, id: \.rawValue) { plan in
                         Text(plan.rawValue).tag(plan.rawValue)
@@ -326,7 +399,13 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            providerSection(title: "Z.ai Coding Plan", isEnabled: $zaiEnabled) {
+            providerSection(title: "Grok", service: .grok, isEnabled: $grokEnabled) {
+                Text("Credits used this period and the reset time are read from Grok CLI's local log (~/.grok/logs/unified.jsonl). Grok refreshes it every few minutes while a session is running; the plan name is auto-detected.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            providerSection(title: "Z.ai Coding Plan", service: .zai, isEnabled: $zaiEnabled) {
                 if hasSavedZaiAPIKey {
                     Text("An API key is already saved in Keychain")
                         .font(.caption2)
