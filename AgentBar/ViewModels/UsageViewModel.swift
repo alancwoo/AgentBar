@@ -8,22 +8,27 @@ final class UsageViewModel: ObservableObject {
     @Published var isLoading: Bool = false
 
     private static let serviceOrder: [ServiceType] = [
-        .claude, .codex, .gemini, .copilot, .cursor, .opencode, .zai
+        .claude, .codex, .gemini, .copilot, .cursor, .grok, .opencode, .zai
     ]
 
     private var providers: [any UsageProviderProtocol]
     private let historyStore: UsageHistoryStoreProtocol
+    /// Filters providers down to tools actually used on this Mac. nil disables
+    /// filtering (tests inject their own providers and expect all of them).
+    private let activityMonitor: ProviderActivityMonitor?
     private let refreshInterval: TimeInterval
     private var timerCancellable: AnyCancellable?
     private var limitsCancellable: AnyCancellable?
     init(
         providers: [any UsageProviderProtocol]? = nil,
         refreshInterval: TimeInterval = 60,
-        historyStore: UsageHistoryStoreProtocol = UsageHistoryStore()
+        historyStore: UsageHistoryStoreProtocol = UsageHistoryStore(),
+        activityMonitor: ProviderActivityMonitor? = nil
     ) {
         self.refreshInterval = refreshInterval
         self.providers = providers ?? Self.buildProviders()
         self.historyStore = historyStore
+        self.activityMonitor = activityMonitor ?? (providers == nil ? ProviderActivityMonitor() : nil)
 
         if providers == nil {
             limitsCancellable = NotificationCenter.default
@@ -56,6 +61,7 @@ final class UsageViewModel: ObservableObject {
 
     func rebuildProviders() {
         providers = Self.buildProviders()
+        activityMonitor?.invalidate()
         Task { await fetchAllUsage() }
     }
 
@@ -65,9 +71,13 @@ final class UsageViewModel: ObservableObject {
 
         var results: [UsageData] = []
         var successfulResults: [UsageData] = []
+        let activeServices = activeServicesFilter()
 
         await withTaskGroup(of: ProviderFetchOutcome?.self) { group in
             for provider in providers {
+                if let activeServices, !activeServices.contains(provider.serviceType) {
+                    continue
+                }
                 group.addTask {
                     guard await provider.isConfigured() else { return nil }
                     do {
@@ -98,11 +108,26 @@ final class UsageViewModel: ObservableObject {
         }
 
         usageData = results
-        lastError = results.isEmpty ? "No data available" : nil
+        if results.isEmpty {
+            lastError = activeServices != nil && !providers.isEmpty
+                ? "No recently used AI tools detected"
+                : "No data available"
+        } else {
+            lastError = nil
+        }
 
         guard !successfulResults.isEmpty else { return }
         await historyStore.record(samples: successfulResults, recordedAt: Date())
         NotificationCenter.default.post(name: .usageHistoryChanged, object: nil)
+    }
+
+    /// Services with recent local activity, or nil when auto-detection is off.
+    private func activeServicesFilter() -> Set<ServiceType>? {
+        guard let activityMonitor,
+              ProviderActivityDetector.isAutoDetectEnabled(in: UserDefaults.standard) else {
+            return nil
+        }
+        return activityMonitor.activeServices()
     }
 
     private static func sortIndex(for service: ServiceType) -> Int {
@@ -132,6 +157,8 @@ final class UsageViewModel: ObservableObject {
             return defaults.string(forKey: "codexPlan")
         case .cursor:
             return defaults.string(forKey: "cursorPlan")
+        case .grok:
+            return defaults.string(forKey: GrokUsageProvider.detectedPlanDefaultsKey)
         default:
             return nil
         }
@@ -169,6 +196,10 @@ final class UsageViewModel: ObservableObject {
             providers.append(CursorUsageProvider(
                 monthlyRequestLimit: cursorMonthlyLimit(in: defaults)
             ))
+        }
+
+        if isEnabled("grokEnabled", in: defaults) {
+            providers.append(GrokUsageProvider())
         }
 
         if isEnabled("zaiEnabled", in: defaults) {

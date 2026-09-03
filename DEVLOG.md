@@ -2,6 +2,14 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 104: Grok provider + activity-based auto-detection
+
+- **New `GrokUsageProvider`** (`ServiceType.grok`, "GK", rose): reads the last `billing: fetched credits config` line from Grok CLI's `~/.grok/logs/unified.jsonl` via a chunked `ReverseLineScanner` (no full-file read on every tick). Maps `creditUsagePercent` to a percent metric with `currentPeriod.end` as the reset; a stale period is rolled forward window-by-window and shown as 0. `subscriptionTier` (e.g. SuperGrok) is the plan label and is remembered in `grokDetectedPlan`. Grok logs microsecond timestamps, which `ISO8601DateFormatter` rejects — `parseTimestamp` trims to milliseconds.
+- **`ProviderActivityDetector` / `ProviderActivityMonitor`**: the bar previously showed every provider that was merely installed or logged in (a `gh` token alone surfaced Copilot). Each service now has a list of home-relative probes (session logs, history files, state DBs) with a scan depth; a provider is fetched only if something was modified in the last 30 days. Z.ai counts as active when a key is stored. Results are cached 5 minutes and invalidated on provider rebuild. `UsageViewModel` applies the filter only for its own factory-built providers, so tests injecting providers are unaffected.
+- **Settings**: new "Detection" section (toggle `providerAutoDetectEnabled`, default on, plus Re-scan), and every provider row shows a detection note ("Detected — last used 2 hours ago" / "No activity in the last 30 days — hidden…" / "Not found on this Mac").
+- Order arrays, `fallbackUnit`, Insights copy, README/CLAUDE.md tables updated; popover test now covers 8 providers (388 pt list, still under the 400 pt cap).
+- Tests: `GrokUsageProviderTests` (9), `ProviderActivityDetectorTests` (10), 2 new `UsageViewModelTests`.
+
 ## Iteration 103: Ruleless popover, scroll only on overflow
 - **Footer rule removed**: the popover now separates bands with space alone — `contentPadding` 14 edges, `headerSpacing` 14 under the action row, `sectionSpacing` 12 above the build line.
 - **Scroll view only when needed**: `needsScrolling(for:)` compares the deterministic row estimate against `maxServiceListHeight`, so the normal case renders a plain `VStack` that sizes itself exactly and drops an unnecessary `NSScrollView`. The scrolling path (and its height preference) is kept for long lists.

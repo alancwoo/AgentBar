@@ -53,7 +53,7 @@ struct InsightsView: View {
     static func windowExplanation(for window: UsageHistoryWindow) -> String {
         switch window {
         case .primary:
-            return "Short cycle: the rate limit that refills fastest — 5h for Claude Code, Codex and Z.ai, 1 day for Gemini, monthly for Copilot and Cursor."
+            return "Short cycle: the rate limit that refills fastest — 5h for Claude Code, Codex and Z.ai, 1 day for Gemini, monthly for Copilot and Cursor, weekly credits for Grok."
         case .secondary:
             return "Long cycle: the slower rolling limit — 7d for Claude Code and Codex, monthly MCP for Z.ai. Services without one fall back to their short cycle."
         }

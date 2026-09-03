@@ -373,7 +373,7 @@ final class DetailPopoverViewTests: XCTestCase {
             UsageData.mock(service: service, fiveHourPct: 0.4, weeklyPct: 0.5)
         }
 
-        XCTAssertEqual(services.count, 7, "All supported providers are covered.")
+        XCTAssertEqual(services.count, 8, "All supported providers are covered.")
         XCTAssertFalse(
             DetailPopoverView.needsScrolling(for: services),
             "Showing every provider at once should not need a scroll view."
@@ -383,7 +383,7 @@ final class DetailPopoverViewTests: XCTestCase {
         XCTAssertLessThan(
             listHeight,
             DetailPopoverView.maxServiceListHeight,
-            "Seven providers must stay under the cap that forces scrolling."
+            "Eight providers must stay under the cap that forces scrolling."
         )
 
         // Chrome: edge padding twice, the action row, its gap, and the build line.

@@ -28,6 +28,7 @@ macOS menu bar app that tracks AI coding assistant usage in one place.
 | GitHub Copilot | GitHub Copilot API (gh CLI token or PAT) | Monthly |
 | Cursor | Cursor API + local SQLite DB | Monthly |
 | Z.ai | Z.ai quota API (API key from Keychain) | 5h, monthly MCP |
+| Grok | Grok CLI local log (`~/.grok/logs/unified.jsonl`) | Weekly credits |
 
 Claude Code and OpenCode also feed desktop notifications through their hook systems.
 
@@ -59,6 +60,7 @@ Claude Code and OpenCode also feed desktop notifications through their hook syst
 
 - Desktop notifications for agent events (Claude hooks, Codex watcher)
 - Per-provider enable/disable, with settings revealed only for enabled providers
+- Auto-detection: only tools with local activity in the last 30 days appear in the menu bar (toggle and re-scan in Settings)
 - Configurable refresh interval, plan/limit controls, Keychain-backed API key storage
 - Sound pack support via the CESP registry
 

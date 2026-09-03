@@ -103,7 +103,7 @@ final class UsageHistoryViewModel: ObservableObject {
     private static let completionThreshold = 1.0
     private static let highBandSegmentCapSeconds: TimeInterval = 30 * 60
     private static let serviceOrder: [ServiceType] = [
-        .claude, .codex, .gemini, .copilot, .cursor, .opencode, .zai
+        .claude, .codex, .gemini, .copilot, .cursor, .grok, .opencode, .zai
     ]
 
     init(
@@ -561,14 +561,14 @@ final class UsageHistoryViewModel: ObservableObject {
             switch service {
             case .codex: return .tokens
             case .gemini, .copilot, .cursor: return .requests
-            case .claude, .zai, .opencode: return .percent
+            case .claude, .zai, .opencode, .grok: return .percent
             }
         case .secondary:
             switch service {
             case .codex: return .tokens
             case .claude: return .percent
             case .zai: return .requests
-            case .gemini, .copilot, .cursor, .opencode: return nil
+            case .gemini, .copilot, .cursor, .opencode, .grok: return nil
             }
         }
     }
