@@ -2,6 +2,30 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 108: In-app updates from GitHub Releases, tag-driven CI release
+- **Update check**: `AppUpdateChecker` reads `releases/latest` from this fork and
+  `AppVersion` compares the numeric core of tags component-wise (`v0.10` > `v0.8`; a bare number
+  without a `v` or a dot is not a version, so commit hashes never parse). `AppUpdateController`
+  checks 15s after launch and every 6h, and only reports a release newer than the running
+  build's `GitVersionTag` — untagged local builds never nag.
+- **Install**: `AppUpdateInstaller` downloads the DMG, `hdiutil attach`es it, and refuses the
+  bundle unless `codesign --verify --deep --strict` passes, its TeamIdentifier matches the running
+  build's, and `spctl` accepts it (notarized). It stages a copy with `ditto` (keeps the signature),
+  swaps it over the running bundle, restores the old one if the swap fails halfway, then relaunches
+  through a detached `open -n`. Refuses to run from App Translocation or an unwritable location.
+  Verified end to end against the real v0.7-fork asset on a temp copy of the app.
+- **Banner**: `UpdateBanner` at the bottom of the popover appears only when an update exists —
+  Install / Downloading… / Installing… / failed with Retry and Open page.
+- **CI**: `.github/workflows/release.yml` runs on `v*` tags — imports the Developer ID `.p12`
+  into a throwaway keychain, stores notarytool credentials, runs `scripts/release.sh`, verifies
+  notarization and publishes the DMG with the tag annotation as notes. A `preflight` job skips
+  the release with a warning when the five secrets are missing, so untagged forks stay green.
+  README documents the secrets.
+- **Tests added**: `AppUpdateTests` (8) — tag parsing and ordering, release JSON gating on
+  DMG/draft/prerelease, newer-than logic, TeamIdentifier parsing, preflight refusals, controller
+  state, banner text
+- All 388 tests passing
+
 ## Iteration 107: Activity history from Claude Code session logs
 - **Why**: Insights only had data from AgentBar's first launch, because quota percentages exist
   nowhere else. Claude Code's own logs (`~/.claude/projects/**/*.jsonl`) hold per-message token

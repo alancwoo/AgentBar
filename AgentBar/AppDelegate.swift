@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel.startMonitoring()
         AgentNotifySettingsMigrator.migrateIfNeeded()
         notifyMonitor.start()
+        AppUpdateController.shared.start()
 
         if needsFirstRun {
             FirstRunWindowController.shared.showApplyingChoices()

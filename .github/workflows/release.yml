@@ -1,0 +1,114 @@
+name: Release
+
+# Pushing a tag such as v0.8-fork builds, signs, notarizes and publishes the
+# DMG as a GitHub Release. The app's update check reads that release, so this
+# is the only step between tagging and users seeing "Install" in the popover.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Secrets cannot be read in job-level `if:` conditions, so a tiny job turns
+  # their presence into an output. Without them the release job is skipped
+  # (with a warning) rather than failing every tag push.
+  preflight:
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Check signing and notarization secrets
+        id: check
+        env:
+          P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          missing=()
+          [[ -z "$P12" ]] && missing+=(MACOS_CERTIFICATE_P12)
+          [[ -z "$P12_PASSWORD" ]] && missing+=(MACOS_CERTIFICATE_PASSWORD)
+          [[ -z "$APPLE_ID" ]] && missing+=(APPLE_ID)
+          [[ -z "$APPLE_TEAM_ID" ]] && missing+=(APPLE_TEAM_ID)
+          [[ -z "$APP_PASSWORD" ]] && missing+=(APPLE_APP_SPECIFIC_PASSWORD)
+          if (( ${#missing[@]} )); then
+            echo "::warning::Release skipped — missing repository secrets: ${missing[*]}. See README → Release."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    needs: preflight
+    if: needs.preflight.outputs.configured == 'true'
+    runs-on: macos-15
+    env:
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - name: Checkout (with tags, so the build embeds the version)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Import Developer ID certificate into a throwaway keychain
+        env:
+          P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/release.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" \
+            -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          rm -f "$RUNNER_TEMP/certificate.p12"
+
+          security find-identity -v -p codesigning "$KEYCHAIN" | grep "Developer ID Application" \
+            || { echo "::error::No Developer ID Application identity in the imported certificate"; exit 1; }
+
+      - name: Store notarization credentials
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          xcrun notarytool store-credentials "AgentBar" \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APP_PASSWORD"
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Build, sign, notarize, staple and package
+        run: DEVELOPMENT_TEAM="$APPLE_TEAM_ID" ./scripts/release.sh
+
+      - name: Verify the archive is notarized
+        run: DEVELOPMENT_TEAM="$APPLE_TEAM_ID" ./scripts/verify-release-signing.sh --require-notarized
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          notes="$(git tag -l --format='%(contents)' "$TAG" | sed '/^-----BEGIN PGP SIGNATURE-----/,$d')"
+          if [[ -z "${notes//[[:space:]]/}" ]]; then
+            gh release create "$TAG" AgentBar.dmg --title "AgentBar $TAG" --generate-notes
+          else
+            gh release create "$TAG" AgentBar.dmg --title "AgentBar $TAG" --notes "$notes"
+          fi

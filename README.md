@@ -59,6 +59,9 @@ Claude Code and OpenCode also feed desktop notifications through their hook syst
 
 **Everything else**
 
+- Checks GitHub for a newer release every six hours; when one exists the popover shows an
+  **Install** button that downloads the DMG, verifies its signature and notarization, swaps the
+  app bundle and relaunches
 - First-launch setup: pick which assistants to track (the ones found on your Mac come pre-ticked),
   the menu bar style, launch at login and refresh interval — nothing is enabled behind your back
 - Desktop notifications for agent events (Claude hooks, Codex watcher)
@@ -111,16 +114,34 @@ Notes:
 
 ### Release
 
-Requires a Developer ID Application certificate, a `notarytool` keychain profile named `AgentBar`,
-and `create-dmg`:
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds, signs, notarizes, staples
+and packages the app, then publishes the DMG as a GitHub Release. Installed copies pick it up
+through the in-app update check.
+
+```sh
+git tag -a v0.9-fork -m "What changed"    # the annotation becomes the release notes
+git push origin v0.9-fork
+```
+
+The workflow needs these repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `MACOS_CERTIFICATE_P12` | Developer ID Application certificate + private key, exported from Keychain Access as `.p12`, base64-encoded (`base64 -i cert.p12 \| pbcopy`) |
+| `MACOS_CERTIFICATE_PASSWORD` | The password chosen when exporting the `.p12` |
+| `APPLE_ID` | Apple ID email for the developer account |
+| `APPLE_TEAM_ID` | Team ID, e.g. `U2X6XGCCXR` |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password from appleid.apple.com, used by `notarytool` |
+
+The same pipeline runs locally with a Developer ID certificate in your keychain, a `notarytool`
+profile named `AgentBar`, and `create-dmg`:
 
 ```sh
 xcrun notarytool store-credentials "AgentBar" --apple-id <id> --team-id <team> --password <app-specific>
 brew install create-dmg
-
-git tag vX.Y                                     # the footer shows the tag when HEAD is on one
-DEVELOPMENT_TEAM=<team> ./scripts/release.sh     # archive, sign, notarize, staple, DMG
+DEVELOPMENT_TEAM=<team> ./scripts/release.sh
 DEVELOPMENT_TEAM=<team> ./scripts/verify-release-signing.sh --require-notarized
+gh release create vX.Y AgentBar.dmg --title "AgentBar vX.Y" --notes "..."
 ```
 
 ## Support

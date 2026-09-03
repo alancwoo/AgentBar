@@ -17,6 +17,7 @@ final class ServiceListHeightModel: ObservableObject {
 
 struct DetailPopoverView: View {
     @ObservedObject var viewModel: UsageViewModel
+    @ObservedObject private var updates = AppUpdateController.shared
     @StateObject private var listHeightModel = ServiceListHeightModel()
     @State private var isHoveringRefresh = false
     private var displayUsageData: [UsageData] {
@@ -374,6 +375,54 @@ struct ActionIconButton: View {
             isHovering = hovering
         }
         .help(help)
+    }
+}
+
+/// Bottom strip shown only when a newer release exists: one click downloads,
+/// verifies, swaps the bundle and relaunches.
+struct UpdateBanner: View {
+    @ObservedObject var controller: AppUpdateController
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundStyle(Color.accentColor)
+            Text(Self.text(for: controller.state))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 8)
+            switch controller.state {
+            case .available:
+                Button("Install") { controller.install() }
+                    .controlSize(.small)
+            case .failed:
+                Button("Retry") { controller.install() }
+                    .controlSize(.small)
+                Button("Open page") { controller.openReleasePage() }
+                    .controlSize(.small)
+            case .downloading, .installing:
+                ProgressView()
+                    .controlSize(.small)
+            case .idle:
+                EmptyView()
+            }
+        }
+        .font(.caption)
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.accentColor.opacity(0.10))
+        )
+    }
+
+    static func text(for state: AppUpdateState) -> String {
+        switch state {
+        case .idle: return ""
+        case .available(let release): return "\(release.tag) is available"
+        case .downloading(let release): return "Downloading \(release.tag)…"
+        case .installing(let release): return "Installing \(release.tag), relaunching…"
+        case .failed(_, let message): return "Update failed: \(message)"
+        }
     }
 }
 
