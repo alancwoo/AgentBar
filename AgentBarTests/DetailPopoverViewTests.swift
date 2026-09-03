@@ -308,20 +308,6 @@ final class DetailPopoverViewTests: XCTestCase {
         )
     }
 
-    func testFooterRulesUseSmallerGapThanTheMainRule() {
-        XCTAssertLessThan(
-            DetailPopoverView.footerSpacing,
-            DetailPopoverView.sectionSpacing,
-            "The smaller footer text should sit in a tighter band."
-        )
-        XCTAssertGreaterThan(DetailPopoverView.footerSpacing, 0)
-        XCTAssertEqual(
-            DetailPopoverView.contentPadding,
-            14,
-            "Edge padding is shared by all four sides so the first row is inset like the last."
-        )
-    }
-
     func testScrollViewOnlyAppearsWhenTheListWouldOverflow() {
         let sixServices = ServiceType.allCases.prefix(6).map {
             UsageData.mock(service: $0, fiveHourPct: 0.2, weeklyPct: 0.3)
@@ -352,10 +338,9 @@ final class DetailPopoverViewTests: XCTestCase {
             "Eight providers must stay under the cap that forces scrolling."
         )
 
-        // Chrome: edge padding twice, the action row, its gap, and the build line.
+        // Chrome: edge padding twice, the action row and its gap.
         let chrome = DetailPopoverView.contentPadding * 2
             + DetailPopoverView.headerSpacing
-            + DetailPopoverView.sectionSpacing
         XCTAssertLessThan(
             listHeight + chrome,
             620,

@@ -73,6 +73,31 @@ struct UsageHistoryServicePanel: Identifiable, Sendable {
     let usageFrequencyDays: Int
     let trendPoints: [UsageHistoryTrendPoint]
     let trendUnit: UsageUnit?
+    /// Present for panels built from local session logs rather than sampled quota.
+    var activitySummary: ActivitySummary? = nil
+}
+
+/// What Insights charts: a sampled quota window, or activity rebuilt from logs.
+enum InsightsMode: String, CaseIterable, Sendable {
+    case shortCycle
+    case longCycle
+    case activity
+
+    var title: String {
+        switch self {
+        case .shortCycle: return "Short cycle"
+        case .longCycle: return "Long cycle"
+        case .activity: return "Activity"
+        }
+    }
+
+    var window: UsageHistoryWindow? {
+        switch self {
+        case .shortCycle: return .primary
+        case .longCycle: return .secondary
+        case .activity: return nil
+        }
+    }
 }
 
 struct UsageHistoryTrendPoint: Sendable {
@@ -83,13 +108,18 @@ struct UsageHistoryTrendPoint: Sendable {
 @MainActor
 final class UsageHistoryViewModel: ObservableObject {
     @Published var selectedWindow: UsageHistoryWindow = .primary
+    @Published var mode: InsightsMode = .shortCycle
     /// Fixed range: the picker was removed in favour of a single useful window.
     @Published var selectedRangeWeeks: Int = 12
 
     @Published private(set) var availableServices: [ServiceType] = []
     @Published private(set) var servicePanels: [UsageHistoryServicePanel] = []
+    /// True while session logs are being read for Activity mode — the first
+    /// pass over a large history takes a few seconds.
+    @Published private(set) var isScanningActivity = false
 
     private let store: UsageHistoryStoreProtocol
+    private let activitySources: [any ActivityHistorySource]
     private let defaults: UserDefaults
     private var calendar: Calendar
     private let nowProvider: @Sendable () -> Date
@@ -110,9 +140,11 @@ final class UsageHistoryViewModel: ObservableObject {
         store: UsageHistoryStoreProtocol = UsageHistoryStore(),
         calendar: Calendar = Calendar(identifier: .gregorian),
         nowProvider: @escaping @Sendable () -> Date = Date.init,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        activitySources: [any ActivityHistorySource] = [ClaudeSessionActivityScanner()]
     ) {
         self.store = store
+        self.activitySources = activitySources
         self.defaults = defaults
         var configuredCalendar = calendar
         configuredCalendar.firstWeekday = 1
@@ -145,6 +177,16 @@ final class UsageHistoryViewModel: ObservableObject {
             value: (selectedRangeWeeks * 7) - 1,
             to: gridStart
         ) ?? now
+
+        if mode == .activity {
+            await refreshActivity(
+                generation: generation,
+                gridStart: gridStart,
+                gridEnd: gridEnd,
+                now: now
+            )
+            return
+        }
 
         let allServices = await store.availableServices(since: gridStart, until: now)
         guard !isStale(generation) else { return }
@@ -282,7 +324,133 @@ final class UsageHistoryViewModel: ObservableObject {
         availableServices = panels.map(\.service)
     }
 
+    // MARK: - Activity (from local logs)
+
+    private func refreshActivity(
+        generation: UInt64,
+        gridStart: Date,
+        gridEnd: Date,
+        now: Date
+    ) async {
+        var panels: [UsageHistoryServicePanel] = []
+        let totalDays = selectedRangeWeeks * 7
+
+        isScanningActivity = true
+        defer { isScanningActivity = false }
+
+        for source in activitySources {
+            guard defaults.bool(forKey: source.service.enabledDefaultsKey, defaultValue: true) else {
+                continue
+            }
+
+            let records = await source.scan(calendar: calendar)
+            guard !isStale(generation) else { return }
+
+            let inRange = records.filter { $0.dayStart >= gridStart && $0.dayStart <= gridEnd }
+            guard let panel = Self.makeActivityPanel(
+                service: source.service,
+                records: inRange,
+                gridStart: gridStart,
+                totalDays: totalDays,
+                now: now,
+                calendar: calendar
+            ) else { continue }
+            panels.append(panel)
+        }
+
+        guard !isStale(generation) else { return }
+        guard !panels.isEmpty else {
+            resetStateForEmptyHistory()
+            return
+        }
+
+        panels.sort {
+            Self.serviceOrderIndex(for: $0.service) < Self.serviceOrderIndex(for: $1.service)
+        }
+        servicePanels = panels
+        availableServices = panels.map(\.service)
+    }
+
+    /// Shades each day by its share of the busiest day in range, so the scale
+    /// is relative to the user's own habits rather than a quota.
+    static func makeActivityPanel(
+        service: ServiceType,
+        records: [ActivityDayRecord],
+        gridStart: Date,
+        totalDays: Int,
+        now: Date,
+        calendar: Calendar
+    ) -> UsageHistoryServicePanel? {
+        let byDay = Dictionary(uniqueKeysWithValues: records.map { ($0.dayStart, $0) })
+        let busiest = records.max { $0.totalTokens < $1.totalTokens }
+        let peakTokens = busiest?.totalTokens ?? 0
+        guard peakTokens > 0 else { return nil }
+
+        let cells: [UsageHistoryHeatmapCell] = (0..<totalDays).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: gridStart) else {
+                return nil
+            }
+            let dayStart = calendar.startOfDay(for: date)
+            let record = date <= now ? byDay[dayStart] : nil
+            let tokens = record?.totalTokens ?? 0
+            let ratio = clampRatio(Double(tokens) / Double(peakTokens))
+            return UsageHistoryHeatmapCell(
+                id: cellID(date: date),
+                date: date,
+                ratio: ratio,
+                level: level(for: ratio),
+                sampleCount: record?.messages ?? 0,
+                peakRatio: ratio,
+                averageRatio: ratio,
+                usedValue: Double(tokens),
+                unit: .tokens
+            )
+        }
+
+        let active = records.filter { $0.totalTokens > 0 }
+        let totalTokens = active.reduce(0) { $0 + $1.totalTokens }
+        let summary = ActivitySummary(
+            totalTokens: totalTokens,
+            activeDays: active.count,
+            sessions: active.reduce(0) { $0 + $1.sessions },
+            busiestDay: busiest?.dayStart,
+            busiestDayTokens: peakTokens,
+            averageTokensPerActiveDay: active.isEmpty ? 0 : totalTokens / active.count
+        )
+
+        return UsageHistoryServicePanel(
+            id: service,
+            service: service,
+            displayWindow: .primary,
+            isSecondaryAvailable: false,
+            heatmapCells: cells,
+            dailySummary: .empty,
+            cycleSummary: .empty,
+            cycleCells: [],
+            isSevenDayCycleAvailable: false,
+            usageFrequencyDays: active.count,
+            trendPoints: cells.filter { $0.date <= now }.map {
+                UsageHistoryTrendPoint(date: $0.date, value: $0.usedValue)
+            },
+            trendUnit: .tokens,
+            activitySummary: summary
+        )
+    }
+
     private func bindInputs() {
+        $mode
+            .dropFirst()
+            .sink { [weak self] mode in
+                guard let self else { return }
+                if let window = mode.window, window != self.selectedWindow {
+                    // selectedWindow's own sink schedules the refresh.
+                    self.selectedWindow = window
+                } else {
+                    self.scheduleRefresh()
+                }
+            }
+            .store(in: &cancellables)
+
         $selectedWindow
             .dropFirst()
             .sink { [weak self] _ in

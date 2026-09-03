@@ -41,19 +41,16 @@ struct DetailPopoverView: View {
                 serviceList
             }
 
-            buildRow
-                .padding(.top, Self.sectionSpacing)
         }
         .padding(Self.contentPadding)
         .frame(width: Self.popoverWidth)
     }
 
-    /// Edge padding, the gap under the action row, and the gap above the build
-    /// line. The popover carries no rules — bands are separated by space alone.
+    /// Edge padding and the gap under the action row. The popover carries no
+    /// rules — bands are separated by space alone.
     static let contentPadding: CGFloat = 14
     static let headerSpacing: CGFloat = 14
     static let sectionSpacing: CGFloat = 12
-    static let footerSpacing: CGFloat = 8
 
     /// Status on the left, actions on the right.
     private var actionRow: some View {
@@ -124,12 +121,6 @@ struct DetailPopoverView: View {
 
     static func refreshLabel(isLoading: Bool, relativeTime: String) -> String {
         isLoading ? "Refreshing…" : relativeTime
-    }
-
-    private var buildRow: some View {
-        Text("AgentBar \(Self.versionString)")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
     }
 
     private func actionButton(

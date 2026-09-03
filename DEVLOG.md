@@ -2,6 +2,28 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 107: Activity history from Claude Code session logs
+- **Why**: Insights only had data from AgentBar's first launch, because quota percentages exist
+  nowhere else. Claude Code's own logs (`~/.claude/projects/**/*.jsonl`) hold per-message token
+  usage back to the user's first session, on every user's Mac — so daily *activity* can be rebuilt
+  for anyone, though quota percentages still cannot (the 5h/7d budgets are server-side).
+- **`ClaudeSessionActivityScanner`**: streams each session file with `memchr` line splitting and a
+  `memmem` check for `"type":"assistant"` before any JSON decode; sums input, output, cache-read
+  and cache-creation tokens per day and dedupes the block repeats that share a `requestId`.
+  Per-file results are cached against size + mtime, and a grown file is resumed from
+  `parsedBytes` with `lastRequestId` carried across the seam. On a 358 MB / 84-file history the
+  first pass takes 4.6s and every later pass ~0.01s.
+- **Insights "Activity" mode**: third segment in the picker. `UsageHistoryViewModel.mode`
+  (`InsightsMode`) drives it; `makeActivityPanel` reuses `UsageHistoryServicePanel`, shading tiles
+  relative to the busiest day in range, with an `ActivitySummary` (active days, sessions, total
+  tokens, average per active day, busiest day) replacing the quota summary. A progress line shows
+  while logs are being read.
+- **Popover**: the `AgentBar <build>` line is gone; the version lives in Settings → About.
+- **Tests added**: `ClaudeSessionActivityScannerTests` (9) — day bucketing, requestId dedupe
+  including across the resume seam, session counting, cache reuse, resumed parsing, malformed
+  lines; activity panel shading and summary
+- All 380 tests passing
+
 ## Iteration 106: Status-page health badges, About links, Buy me a Coffee removed
 - **Service health**: new `ServiceStatusMonitor` actor polls each service's Statuspage.io
   `/api/v2/components.json`, cached five minutes per page, and maps the worst matching component

@@ -21,8 +21,19 @@ struct InsightsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 controlsSection
 
-                if viewModel.servicePanels.isEmpty {
-                    Text("No usage recorded yet. Keep AgentBar running and this fills in as your agents are used.")
+                if viewModel.servicePanels.isEmpty, viewModel.isScanningActivity {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Reading session logs… the first pass over a long history takes a few seconds.")
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 24)
+                } else if viewModel.servicePanels.isEmpty {
+                    Text(viewModel.mode == .activity
+                         ? "No session logs found for an enabled assistant. Activity is rebuilt from Claude Code's local sessions."
+                         : "No usage recorded yet. Keep AgentBar running and this fills in as your agents are used.")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 24)
@@ -43,6 +54,18 @@ struct InsightsView: View {
 
     static let chartExplanation = "Left: one tile per day, shaded by that day's peak usage. Right: the same daily peaks as a line. Consistency tiles are one per completed reset cycle."
 
+    static let activityExplanation = "Activity: tokens processed per day, rebuilt from the assistant's own session logs on this Mac — so it reaches back to your first session, not AgentBar's first launch. Tiles are shaded relative to your busiest day in range. Claude Code is supported; its quota percentages cannot be rebuilt this way, so the cycle views stay live-only."
+
+    static func helpText(for mode: InsightsMode) -> String {
+        switch mode {
+        case .activity:
+            return activityExplanation
+        case .shortCycle, .longCycle:
+            let window = mode.window ?? .primary
+            return "\(windowExplanation(for: window))\n\n\(chartExplanation)"
+        }
+    }
+
     static func helpText(for window: UsageHistoryWindow) -> String {
         "\(windowExplanation(for: window))\n\n\(chartExplanation)"
     }
@@ -61,13 +84,14 @@ struct InsightsView: View {
 
     private var controlsSection: some View {
         HStack(spacing: 8) {
-            Picker("", selection: $viewModel.selectedWindow) {
-                Text("Short cycle").tag(UsageHistoryWindow.primary)
-                Text("Long cycle").tag(UsageHistoryWindow.secondary)
+            Picker("", selection: $viewModel.mode) {
+                ForEach(InsightsMode.allCases, id: \.rawValue) { mode in
+                    Text(mode.title).tag(mode)
+                }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 220)
+            .frame(width: 300)
 
             // `.help` alone does not reliably register a tooltip on a bare
             // Image, so the explanation is a hover popover instead.
@@ -79,13 +103,13 @@ struct InsightsView: View {
                     isShowingCycleHelp = hovering
                 }
                 .popover(isPresented: $isShowingCycleHelp, arrowEdge: .bottom) {
-                    Text(Self.helpText(for: viewModel.selectedWindow))
+                    Text(Self.helpText(for: viewModel.mode))
                         .font(.callout)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(width: 320, alignment: .leading)
                         .padding(12)
                 }
-                .help(Self.helpText(for: viewModel.selectedWindow))
+                .help(Self.helpText(for: viewModel.mode))
 
             Spacer()
 
@@ -110,7 +134,11 @@ struct InsightsView: View {
             }
 
             chartsSection(panel)
-            dailySummarySection(panel)
+            if let activity = panel.activitySummary {
+                activitySummarySection(activity, panel: panel)
+            } else {
+                dailySummarySection(panel)
+            }
 
             if panel.isSevenDayCycleAvailable {
                 cycleConsistencySection(panel)
@@ -125,12 +153,12 @@ struct InsightsView: View {
     private func chartsSection(_ panel: UsageHistoryServicePanel) -> some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                chartTitle("Daily usage")
+                chartTitle(panel.activitySummary == nil ? "Daily usage" : "Daily tokens")
                 heatmapSection(panel)
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                chartTitle("Daily peak usage")
+                chartTitle(panel.activitySummary == nil ? "Daily peak usage" : "Tokens per day")
                 trendChartSection(panel)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -300,6 +328,9 @@ struct InsightsView: View {
     }
 
     private func panelWindowTitle(_ panel: UsageHistoryServicePanel) -> String {
+        if panel.activitySummary != nil {
+            return "from session logs"
+        }
         switch panel.displayWindow {
         case .primary:
             if viewModel.selectedWindow == .secondary && !panel.isSecondaryAvailable {
@@ -339,6 +370,25 @@ struct InsightsView: View {
         }
     }
 
+    private func activitySummarySection(
+        _ summary: ActivitySummary,
+        panel: UsageHistoryServicePanel
+    ) -> some View {
+        HStack(spacing: 14) {
+            summaryItem(title: "Active Days", value: "\(summary.activeDays)")
+            summaryItem(title: "Sessions", value: "\(summary.sessions)")
+            summaryItem(title: "Total Tokens", value: formatUsageValue(Double(summary.totalTokens), unit: .tokens))
+            summaryItem(
+                title: "Avg / Active Day",
+                value: formatUsageValue(Double(summary.averageTokensPerActiveDay), unit: .tokens)
+            )
+            summaryItem(
+                title: "Busiest Day",
+                value: summary.busiestDay.map(dateString) ?? "-"
+            )
+        }
+    }
+
     private func summaryItem(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
@@ -350,7 +400,10 @@ struct InsightsView: View {
     }
 
     private func dayTooltip(for cell: UsageHistoryHeatmapCell) -> String {
-        "\(dateString(cell.date))\nPeak: \(percentString(cell.peakRatio))\nAverage: \(percentString(cell.averageRatio))\nSamples: \(cell.sampleCount)"
+        if viewModel.mode == .activity {
+            return "\(dateString(cell.date))\nTokens: \(formatUsageValue(cell.usedValue, unit: .tokens))\nMessages: \(cell.sampleCount)"
+        }
+        return "\(dateString(cell.date))\nPeak: \(percentString(cell.peakRatio))\nAverage: \(percentString(cell.averageRatio))\nSamples: \(cell.sampleCount)"
     }
 
     private func cycleTooltip(for cell: UsageHistoryCycleCell) -> String {
