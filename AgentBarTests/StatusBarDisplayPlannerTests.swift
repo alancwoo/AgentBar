@@ -34,8 +34,12 @@ final class StatusBarAppearanceTests: XCTestCase {
         return defaults
     }
 
-    func testResolvesLabeledByDefault() {
-        XCTAssertEqual(StatusBarAppearance.resolve(from: makeDefaults()), .labeled)
+    func testResolvesCompactByDefault() {
+        XCTAssertEqual(
+            StatusBarAppearance.resolve(from: makeDefaults()),
+            .compact,
+            "New installs should start with the narrowest style."
+        )
     }
 
     func testResolvesCompactWhenStored() {
@@ -44,10 +48,10 @@ final class StatusBarAppearanceTests: XCTestCase {
         XCTAssertEqual(StatusBarAppearance.resolve(from: defaults), .compact)
     }
 
-    func testResolvesLabeledForUnknownStoredValue() {
+    func testResolvesDefaultForUnknownStoredValue() {
         let defaults = makeDefaults()
         defaults.set("bogus", forKey: StatusBarAppearance.defaultsKey)
-        XCTAssertEqual(StatusBarAppearance.resolve(from: defaults), .labeled)
+        XCTAssertEqual(StatusBarAppearance.resolve(from: defaults), .compact)
     }
 
     func testCompactHidesServiceLabel() {
@@ -55,9 +59,11 @@ final class StatusBarAppearanceTests: XCTestCase {
         XCTAssertFalse(StatusBarAppearance.compact.showsServiceLabel)
     }
 
-    func testEveryAppearanceHasADisplayName() {
+    func testAppearanceNamesDescribeTheirOrientation() {
+        XCTAssertEqual(StatusBarAppearance.compact.displayName, "Compact (Vertical)")
+        XCTAssertEqual(StatusBarAppearance.labeled.displayName, "Extended (Horizontal)")
         for appearance in StatusBarAppearance.allCases {
-            XCTAssertFalse(appearance.displayName.isEmpty)
+            XCTAssertFalse(appearance.summary.isEmpty)
         }
     }
 }

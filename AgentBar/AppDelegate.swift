@@ -8,12 +8,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !terminateIfAlreadyRunning() else { return }
+
+        let needsFirstRun = FirstRunSettings.needsFirstRun() && !isRunningTests
+        if needsFirstRun {
+            // Providers default to enabled, so nothing should be tracked (or
+            // asked for credentials) until the user has actually chosen.
+            FirstRunSettings.seedDisabledProviders()
+            viewModel.rebuildProviders()
+        }
+
         statusBarController = StatusBarController(viewModel: viewModel)
         statusBarController?.setup()
         viewModel.startMonitoring()
         AgentNotifySettingsMigrator.migrateIfNeeded()
         notifyMonitor.start()
-        registerLoginItemIfNeeded()
+
+        if needsFirstRun {
+            presentFirstRunSetup()
+        } else {
+            registerLoginItemIfNeeded()
+        }
+    }
+
+    private var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
+    private func presentFirstRunSetup() {
+        FirstRunWindowController.shared.show { selection in
+            FirstRunSettings.apply(selection)
+            try? LoginItemManager.setEnabled(selection.launchAtLogin)
+            NotificationCenter.default.post(name: .statusBarAppearanceChanged, object: nil)
+            NotificationCenter.default.post(name: .limitsChanged, object: nil)
+        }
     }
 
     /// Terminate this instance if another copy is already running.

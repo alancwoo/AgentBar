@@ -13,7 +13,7 @@ enum StatusBarAppearance: String, CaseIterable, Sendable {
     static func resolve(from defaults: UserDefaults = .standard) -> StatusBarAppearance {
         guard let rawValue = defaults.string(forKey: defaultsKey),
               let appearance = StatusBarAppearance(rawValue: rawValue) else {
-            return .labeled
+            return .compact
         }
         return appearance
     }
@@ -24,8 +24,15 @@ enum StatusBarAppearance: String, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .labeled: return "Labels + bars"
-        case .compact: return "Bars only (compact)"
+        case .labeled: return "Extended (Horizontal)"
+        case .compact: return "Compact (Vertical)"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .labeled: return "Labelled rows, three at a time"
+        case .compact: return "One colour per agent, narrowest"
         }
     }
 }

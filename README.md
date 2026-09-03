@@ -37,10 +37,11 @@ Claude Code and OpenCode also feed desktop notifications through their hook syst
 **Menu bar**
 
 <p align="center">
-  <img src="docs/assets/menubar-styles.png" alt="Labels + bars style next to the compact bars-only style" width="262" />
+  <img src="docs/assets/menubar-styles.png" alt="Extended (Horizontal) style above Compact (Vertical)" width="292" />
 </p>
 
-- Two styles: labelled rows, or compact vertical columns where colour alone identifies each agent
+- Two styles: **Compact (Vertical)**, one colour-coded column per agent, or **Extended
+  (Horizontal)**, labelled rows three at a time
 - Compact sizes itself to the number of active agents — one agent takes 9pt of menu bar
 - Rows are ranked by usage, so whatever is closest to its limit stays visible
 
@@ -58,6 +59,8 @@ Claude Code and OpenCode also feed desktop notifications through their hook syst
 
 **Everything else**
 
+- First-launch setup: pick which assistants to track (the ones found on your Mac come pre-ticked),
+  the menu bar style, launch at login and refresh interval — nothing is enabled behind your back
 - Desktop notifications for agent events (Claude hooks, Codex watcher)
 - Per-provider enable/disable, with settings revealed only for enabled providers
 - Auto-detection: only tools with local activity in the last 30 days appear in the menu bar (toggle and re-scan in Settings)
@@ -80,6 +83,8 @@ Keychain credentials, all of which the sandbox would block.
   content-sized height, and dismissal when you click away to another app
 - **Insights moved out of Settings** into its own window, charting only providers you have enabled
 - **Collapsible provider settings** — each provider is a single row until switched on
+- **First-launch setup** instead of enabling every provider (and prompting for their credentials)
+  on the very first run
 - **Claude plan auto-detection** from the Claude Code credentials, instead of a manual picker
 - **Fixes**: Copilot's `gh` lookup under launchd's minimal `PATH`, unit tests recording mock usage
   into the real history file, sound-pack path traversal, event-socket permissions, and release
