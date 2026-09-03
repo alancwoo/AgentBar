@@ -499,12 +499,16 @@ struct UsageWindowRow: View {
         .help(Self.detailText(label: chip.label, metric: chip.metric))
     }
 
-    /// Hourglass that fills as the window runs down, then the time left —
-    /// numbers right-aligned so the column reads as a table.
+    /// Time left, right-aligned so the column reads as a table, then an
+    /// hourglass that fills as the window runs down.
     @ViewBuilder
     private var resetColumn: some View {
         if let remaining = Self.remainingText(for: chip.metric) {
             HStack(spacing: 3) {
+                Text(remaining)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .frame(width: Self.resetTimeWidth, alignment: .trailing)
                 Image(systemName: Self.hourglassSymbol(
                     remaining: chip.metric.resetTime.map { $0.timeIntervalSinceNow } ?? 0,
                     windowLength: Self.windowLength(forLabel: chip.label)
@@ -512,10 +516,6 @@ struct UsageWindowRow: View {
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
                 .frame(width: Self.resetIconWidth)
-                Text(remaining)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .frame(width: Self.resetTimeWidth, alignment: .trailing)
             }
             .help("Resets in \(remaining)")
         } else {

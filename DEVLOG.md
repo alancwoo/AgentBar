@@ -2,6 +2,11 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 110: Hourglass trails the time
+- **Reset column order**: time first, right-aligned, then the hourglass with a 3pt gap — the
+  glyph now sits flush at the right edge of every row rather than leading the number.
+- All 390 tests passing
+
 ## Iteration 109: Leaner setup window, hourglass reset column
 - **Setup window**: assistants box spans the full width; the header subtitle, the services
   caption and the style-card summaries are gone (`StatusBarAppearance.summary` removed); launch
