@@ -210,17 +210,19 @@ struct DetailPopoverView: View {
     }
 
     static let popoverWidth: CGFloat = 360
-    /// Cap so a long service list can never push the popover off-screen.
-    static let maxServiceListHeight: CGFloat = 400
+    /// Cap so a long service list can never push the popover off-screen. Sized
+    /// to fit every supported provider at once now that each usage window takes
+    /// its own line.
+    static let maxServiceListHeight: CGFloat = 520
     static let minServiceListHeight: CGFloat = 44
     static let serviceRowSpacing: CGFloat = 12
     /// Approximate rendered heights, used only for the first layout pass.
-    static let serviceRowHeight: CGFloat = 38
-    static let extraChipRowHeight: CGFloat = 16
+    static let serviceHeaderHeight: CGFloat = 20
+    static let windowRowHeight: CGFloat = 17
 
     static func estimatedRowHeight(for data: UsageData) -> CGFloat {
-        let chipRows = ServiceDetailRow.chipRows(for: data).count
-        return serviceRowHeight + CGFloat(max(0, chipRows - 1)) * extraChipRowHeight
+        let windows = CGFloat(ServiceDetailRow.chips(for: data).count)
+        return serviceHeaderHeight + windows * windowRowHeight
     }
 
     /// Clamps the measured list height into the popover's allowed range.
@@ -322,37 +324,22 @@ struct ServiceDetailRow: View {
     let data: UsageData
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 Text(data.service.rawValue)
                     .font(.subheadline.weight(.medium))
-                    .fixedSize()
                 if let planName = data.planName {
                     Text(planName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .fixedSize()
                 }
-                Spacer(minLength: 10)
-                MiniBarView(data: data)
-                    .frame(height: MiniBarView.height(for: data))
-                    .frame(minWidth: 90, maxWidth: .infinity)
+                Spacer(minLength: 0)
             }
 
-            // Legend: the dot colour maps each window to its bar track.
-            VStack(alignment: .leading, spacing: 3) {
-                ForEach(Array(Self.chipRows(for: data).enumerated()), id: \.offset) { _, row in
-                    HStack(spacing: 10) {
-                        ForEach(row) { chip in
-                            MetricChip(
-                                color: chip.color,
-                                label: chip.label,
-                                metric: chip.metric
-                            )
-                        }
-                        Spacer(minLength: 0)
-                    }
-                }
+            // One line per usage window, in fixed columns so every service
+            // lines up down the popover.
+            ForEach(Self.chips(for: data)) { chip in
+                UsageWindowRow(chip: chip)
             }
         }
     }
@@ -397,18 +384,6 @@ extension ServiceDetailRow {
         }
         return result
     }
-
-    /// Two chips is all that fits on one popover-width line, so a third window
-    /// wraps rather than being clipped.
-    static let maxChipsPerRow = 2
-
-    static func chipRows(for data: UsageData) -> [[Chip]] {
-        let all = chips(for: data)
-        guard all.count > maxChipsPerRow else { return [all] }
-        return stride(from: 0, to: all.count, by: maxChipsPerRow).map {
-            Array(all[$0..<min($0 + maxChipsPerRow, all.count)])
-        }
-    }
 }
 
 /// Footer icon that goes solid (full-contrast label colour — white on a dark
@@ -435,36 +410,51 @@ struct ActionIconButton: View {
     }
 }
 
-/// One window of a service: colour key, name, usage and time left in its cycle.
-struct MetricChip: View {
-    let color: Color
-    let label: String
-    let metric: UsageMetric
+/// One usage window: colour key, label, percentage, its own bar, and the time
+/// left in the cycle. Column widths are fixed so rows align across services.
+struct UsageWindowRow: View {
+    let chip: ServiceDetailRow.Chip
+
+    static let dotSize: CGFloat = 6
+    static let labelWidth: CGFloat = 24
+    static let percentWidth: CGFloat = 32
+    static let resetWidth: CGFloat = 96
+    static let barHeight: CGFloat = 6
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Circle()
-                .fill(color)
-                .frame(width: 6, height: 6)
-            Text(label)
+                .fill(chip.color)
+                .frame(width: Self.dotSize, height: Self.dotSize)
+
+            Text(chip.label)
                 .foregroundStyle(.secondary)
-            Text("\(Int(metric.percentage * 100))%")
+                .frame(width: Self.labelWidth, alignment: .leading)
+
+            Text("\(Int(chip.metric.percentage * 100))%")
                 .monospacedDigit()
-                .foregroundStyle(metric.percentage > 0.8 ? .red : .primary)
-            if let remaining = Self.remainingText(for: metric) {
-                Text(Self.resetText(remaining: remaining))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            }
+                .foregroundStyle(chip.metric.percentage > 0.8 ? .red : .primary)
+                .frame(width: Self.percentWidth, alignment: .trailing)
+
+            UsageTrackBar(ratio: chip.metric.percentage, color: chip.color)
+                .frame(height: Self.barHeight)
+                .frame(maxWidth: .infinity)
+
+            Text(Self.resetText(for: chip.metric))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(width: Self.resetWidth, alignment: .trailing)
         }
         .font(.caption2)
         .lineLimit(1)
-        .fixedSize()
-        .help(Self.detailText(label: label, metric: metric))
+        .help(Self.detailText(label: chip.label, metric: chip.metric))
     }
 
-    static func resetText(remaining: String) -> String {
-        "· Resets in \(remaining)"
+    /// Empty rather than nil, so the column keeps its width and the bars stay
+    /// aligned for services whose window has no reset time.
+    static func resetText(for metric: UsageMetric) -> String {
+        guard let remaining = remainingText(for: metric) else { return "" }
+        return "Resets in \(remaining)"
     }
 
     /// Time until this window resets, or nil once it has passed.
@@ -519,46 +509,22 @@ struct MetricChip: View {
     }
 }
 
-struct MiniBarView: View {
-    let data: UsageData
-
-    static let trackHeight: CGFloat = 3
-    static let trackSpacing: CGFloat = 1.5
-
-    /// Height needed for one track per window this service reports.
-    static func height(for data: UsageData) -> CGFloat {
-        let tracks = CGFloat(windowCount(for: data))
-        return tracks * trackHeight + max(0, tracks - 1) * trackSpacing
-    }
-
-    static func windowCount(for data: UsageData) -> Int {
-        1 + (data.weeklyUsage == nil ? 0 : 1) + (data.monthlyUsage == nil ? 0 : 1)
-    }
+/// A single filled track.
+struct UsageTrackBar: View {
+    let ratio: Double
+    let color: Color
 
     var body: some View {
-        VStack(spacing: Self.trackSpacing) {
-            track(ratio: data.fiveHourUsage.percentage, color: data.service.darkColor)
-            if let weekly = data.weeklyUsage {
-                track(ratio: weekly.percentage, color: data.service.lightColor)
-            }
-            if let monthly = data.monthlyUsage {
-                track(ratio: monthly.percentage, color: data.service.monthColor)
-            }
-        }
-    }
-
-    private func track(ratio: Double, color: Color) -> some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: Self.trackHeight / 2)
+                RoundedRectangle(cornerRadius: 3)
                     .fill(Color.gray.opacity(0.2))
                 if ratio > 0 {
-                    RoundedRectangle(cornerRadius: Self.trackHeight / 2)
+                    RoundedRectangle(cornerRadius: 3)
                         .fill(color)
                         .frame(width: max(2, geo.size.width * ratio))
                 }
             }
         }
-        .frame(height: Self.trackHeight)
     }
 }

@@ -29,13 +29,9 @@ enum ClaudePlan: String, CaseIterable, Codable, Sendable {
     case max20x = "Max 20x"
     case team = "Team"
 
-    /// Stored in place of a case when the label should follow the plan recorded
-    /// in the Claude Code credentials instead of a manual choice.
-    static let autoRawValue = "Auto"
-
     /// Maps the `subscriptionType` Claude Code stores alongside its OAuth token
-    /// onto a display label. Claude Code does not distinguish Max 5x from
-    /// Max 20x, so "max" stays generic — pick a case manually for the tier.
+    /// onto the label shown beside "Claude Code". Claude Code does not
+    /// distinguish Max 5x from Max 20x, so "max" stays generic.
     static func displayName(forSubscriptionType rawValue: String) -> String? {
         switch rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "free": return ClaudePlan.free.rawValue

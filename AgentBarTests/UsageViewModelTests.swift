@@ -170,15 +170,9 @@ final class UsageViewModelTests: XCTestCase {
             XCTAssertEqual(CodexPlan(rawValue: plan.rawValue), plan)
         }
 
-        let claudeCases = ClaudePlan.allCases
-        XCTAssertEqual(claudeCases.count, 5)
-        XCTAssertEqual(claudeCases.map(\.rawValue), ["Free", "Pro", "Max 5x", "Max 20x", "Team"])
-        for plan in claudeCases {
-            XCTAssertEqual(ClaudePlan(rawValue: plan.rawValue), plan)
-        }
-        XCTAssertNil(ClaudePlan(rawValue: "Max"))
-        XCTAssertEqual(ClaudePlan.max5x.rawValue, "Max 5x")
-        XCTAssertEqual(ClaudePlan.max20x.rawValue, "Max 20x")
+        // Claude's plan is not user-selectable; the cases only back the label
+        // mapped from the credentials' subscriptionType.
+        XCTAssertEqual(ClaudePlan.allCases.map(\.rawValue), ["Free", "Pro", "Max 5x", "Max 20x", "Team"])
     }
 
     func testCopilotCapitalizedPlanName() {

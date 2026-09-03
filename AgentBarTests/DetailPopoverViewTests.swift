@@ -63,7 +63,10 @@ final class DetailPopoverViewTests: XCTestCase {
         ])
         XCTAssertEqual(
             single,
-            max(DetailPopoverView.serviceRowHeight, DetailPopoverView.minServiceListHeight),
+            max(
+                DetailPopoverView.serviceHeaderHeight + DetailPopoverView.windowRowHeight * 2,
+                DetailPopoverView.minServiceListHeight
+            ),
             "A lone row is still floored at the minimum list height."
         )
 
@@ -71,10 +74,9 @@ final class DetailPopoverViewTests: XCTestCase {
             UsageData.mock(service: .claude, fiveHourPct: 0.1, weeklyPct: 0.1),
             UsageData.mock(service: .codex, fiveHourPct: 0.1, weeklyPct: 0.1)
         ])
-        XCTAssertEqual(
-            two,
-            DetailPopoverView.serviceRowHeight * 2 + DetailPopoverView.serviceRowSpacing
-        )
+        let expectedRow = DetailPopoverView.serviceHeaderHeight
+            + DetailPopoverView.windowRowHeight * 2
+        XCTAssertEqual(two, expectedRow * 2 + DetailPopoverView.serviceRowSpacing)
 
         let withMonth = UsageData(
             service: .claude,
@@ -85,9 +87,9 @@ final class DetailPopoverViewTests: XCTestCase {
             isAvailable: true
         )
         XCTAssertEqual(
-            DetailPopoverView.estimatedListHeight(for: [withMonth]),
-            DetailPopoverView.serviceRowHeight + DetailPopoverView.extraChipRowHeight,
-            "A third window wraps onto a second chip line, making the row taller."
+            DetailPopoverView.estimatedRowHeight(for: withMonth),
+            DetailPopoverView.serviceHeaderHeight + DetailPopoverView.windowRowHeight * 3,
+            "Each window adds a line, so a three-window service is taller."
         )
 
         XCTAssertEqual(
@@ -256,43 +258,23 @@ final class DetailPopoverViewTests: XCTestCase {
         )
 
         XCTAssertEqual(ServiceDetailRow.chips(for: data).count, 1)
-        XCTAssertEqual(ServiceDetailRow.chipRows(for: data).count, 1)
     }
 
-    func testThirdWindowWrapsToASecondChipRow() {
-        let data = UsageData(
-            service: .claude,
-            fiveHourUsage: UsageMetric(used: 10, total: 100, unit: .percent, resetTime: nil),
-            weeklyUsage: UsageMetric(used: 20, total: 100, unit: .percent, resetTime: nil),
-            monthlyUsage: UsageMetric(used: 30, total: 100, unit: .percent, resetTime: nil),
-            lastUpdated: Date(),
-            isAvailable: true
+    func testWindowRowKeepsTheResetColumnWhenThereIsNoResetTime() {
+        let noReset = UsageMetric(used: 1, total: 10, unit: .requests, resetTime: nil)
+        XCTAssertEqual(
+            UsageWindowRow.resetText(for: noReset),
+            "",
+            "An empty string keeps the column width so bars stay aligned."
         )
 
-        let rows = ServiceDetailRow.chipRows(for: data)
-        XCTAssertEqual(rows.count, 2, "Three chips do not fit on one popover-width line.")
-        XCTAssertEqual(rows[0].count, 2)
-        XCTAssertEqual(rows[1].count, 1)
-    }
-
-    func testStackedBarHasOneTrackPerWindow() {
-        let twoWindows = UsageData.mock(service: .claude, fiveHourPct: 0.1, weeklyPct: 0.2)
-        XCTAssertEqual(MiniBarView.windowCount(for: twoWindows), 2)
-
-        let threeWindows = UsageData(
-            service: .claude,
-            fiveHourUsage: UsageMetric(used: 10, total: 100, unit: .percent, resetTime: nil),
-            weeklyUsage: UsageMetric(used: 20, total: 100, unit: .percent, resetTime: nil),
-            monthlyUsage: UsageMetric(used: 30, total: 100, unit: .percent, resetTime: nil),
-            lastUpdated: Date(),
-            isAvailable: true
+        // Exact durations are covered by the formatDuration tests; asserting a
+        // literal here races the clock as the countdown ticks down.
+        let future = UsageMetric(
+            used: 1, total: 10, unit: .requests,
+            resetTime: Date().addingTimeInterval(6540)
         )
-        XCTAssertEqual(MiniBarView.windowCount(for: threeWindows), 3)
-        XCTAssertGreaterThan(
-            MiniBarView.height(for: threeWindows),
-            MiniBarView.height(for: twoWindows),
-            "Each window gets its own track, so the bar grows with window count."
-        )
+        XCTAssertTrue(UsageWindowRow.resetText(for: future).hasPrefix("Resets in 1h4"))
     }
 
     func testMetricChipHidesElapsedTimersAndFormatsCompactly() {
@@ -301,26 +283,26 @@ final class DetailPopoverViewTests: XCTestCase {
             resetTime: Date().addingTimeInterval(-60)
         )
         XCTAssertNil(
-            MetricChip.remainingText(for: expired),
+            UsageWindowRow.remainingText(for: expired),
             "A reset time in the past should not render a countdown."
         )
         XCTAssertNil(
-            MetricChip.remainingText(
+            UsageWindowRow.remainingText(
                 for: UsageMetric(used: 1, total: 10, unit: .requests, resetTime: nil)
             )
         )
 
-        XCTAssertEqual(MetricChip.formatDuration(49 * 60), "49m")
-        XCTAssertEqual(MetricChip.formatDuration(6540), "1h49m")
-        XCTAssertEqual(MetricChip.formatDuration(285_000), "3d7h")
+        XCTAssertEqual(UsageWindowRow.formatDuration(49 * 60), "49m")
+        XCTAssertEqual(UsageWindowRow.formatDuration(6540), "1h49m")
+        XCTAssertEqual(UsageWindowRow.formatDuration(285_000), "3d7h")
     }
 
     func testMetricChipTooltipCarriesExactCounts() {
         let tokens = UsageMetric(used: 4_200_000, total: 10_000_000, unit: .tokens, resetTime: nil)
-        XCTAssertEqual(MetricChip.detailText(label: "5h", metric: tokens), "5h: 4.2M of 10.0M")
+        XCTAssertEqual(UsageWindowRow.detailText(label: "5h", metric: tokens), "5h: 4.2M of 10.0M")
 
         let percent = UsageMetric(used: 28, total: 100, unit: .percent, resetTime: nil)
-        XCTAssertEqual(MetricChip.detailText(label: "7d", metric: percent), "7d: 28% used")
+        XCTAssertEqual(UsageWindowRow.detailText(label: "7d", metric: percent), "7d: 28% used")
     }
 
     func testRefreshLabelSwitchesToProgressWhileFetching() {
@@ -392,8 +374,29 @@ final class DetailPopoverViewTests: XCTestCase {
             + DetailPopoverView.sectionSpacing
         XCTAssertLessThan(
             listHeight + chrome,
-            500,
+            620,
             "The whole popover should stay comfortably on screen with every provider enabled."
+        )
+    }
+
+    func testWindowRowColumnsAreFixedSoServicesAlign() {
+        // Every column except the bar is a fixed width; the bar takes the rest,
+        // which is what keeps rows lined up between services.
+        let fixed = UsageWindowRow.dotSize
+            + UsageWindowRow.labelWidth
+            + UsageWindowRow.percentWidth
+            + UsageWindowRow.resetWidth
+        let available = DetailPopoverView.popoverWidth - DetailPopoverView.contentPadding * 2
+
+        XCTAssertLessThan(
+            fixed,
+            available,
+            "Fixed columns must leave room for the usage bar."
+        )
+        XCTAssertGreaterThan(
+            available - fixed,
+            60,
+            "The bar needs enough width to read as a proportion."
         )
     }
 

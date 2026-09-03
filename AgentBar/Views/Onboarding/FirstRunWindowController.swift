@@ -9,6 +9,16 @@ final class FirstRunWindowController {
 
     private init() {}
 
+    /// Shows setup and writes whatever the user picks.
+    func showApplyingChoices() {
+        show { selection in
+            FirstRunSettings.apply(selection)
+            try? LoginItemManager.setEnabled(selection.launchAtLogin)
+            NotificationCenter.default.post(name: .statusBarAppearanceChanged, object: nil)
+            NotificationCenter.default.post(name: .limitsChanged, object: nil)
+        }
+    }
+
     /// Shows the setup window and reports the chosen settings once dismissed.
     func show(onFinish: @escaping (FirstRunSelection) -> Void) {
         if let window {

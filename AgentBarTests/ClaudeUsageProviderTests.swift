@@ -25,48 +25,6 @@ final class ClaudeUsageProviderTests: XCTestCase {
         return defaults
     }
 
-    func testResolvedPlanNameUsesDetectedPlanWhenSetToAuto() {
-        let suiteName = "ClaudePlanAuto.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else {
-            return XCTFail("Could not create test defaults")
-        }
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        defaults.set(ClaudePlan.autoRawValue, forKey: "claudePlan")
-        XCTAssertEqual(
-            ClaudeUsageProvider.resolvedPlanName(defaults: defaults, detectedPlan: { "Max" }),
-            "Max"
-        )
-    }
-
-    func testResolvedPlanNameIsNilWhenAutoDetectsNothing() {
-        let suiteName = "ClaudePlanAutoMiss.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else {
-            return XCTFail("Could not create test defaults")
-        }
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        defaults.set(ClaudePlan.autoRawValue, forKey: "claudePlan")
-        XCTAssertNil(
-            ClaudeUsageProvider.resolvedPlanName(defaults: defaults, detectedPlan: { nil }),
-            "A wrong label is worse than none when detection fails."
-        )
-    }
-
-    func testResolvedPlanNamePrefersManualSelectionOverDetection() {
-        let suiteName = "ClaudePlanManual.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else {
-            return XCTFail("Could not create test defaults")
-        }
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        defaults.set(ClaudePlan.max20x.rawValue, forKey: "claudePlan")
-        XCTAssertEqual(
-            ClaudeUsageProvider.resolvedPlanName(defaults: defaults, detectedPlan: { "Pro" }),
-            "Max 20x"
-        )
-    }
-
     func testParsesSubscriptionTypeFromCredentialBlob() {
         let json = """
         {"claudeAiOauth":{"accessToken":"tok","subscriptionType":"max"}}

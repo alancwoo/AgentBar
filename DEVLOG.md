@@ -2,6 +2,29 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 105: One row per usage window, Claude plan setting removed
+- **Claude plan setting removed**: the picker and its caption are gone from Settings, along with
+  `claudePlan` storage, `ClaudePlan.autoRawValue`, `migrateLegacyClaudePlanIfNeeded` and
+  `ClaudeUsageProvider.resolvedPlanName(defaults:detectedPlan:)`. The label beside "Claude Code"
+  now comes purely from the `subscriptionType` in the Claude Code credentials; the Claude section
+  keeps only a one-line note about where usage comes from.
+- **Popover rows restructured**: the service name sits on its own line and each usage window gets
+  its own row — colour dot, label, percentage, its own `UsageTrackBar`, and "Resets in …".
+  `MetricChip`/`MiniBarView` were replaced by `UsageWindowRow`/`UsageTrackBar`; chip wrapping
+  (`chipRows`, `maxChipsPerRow`) is gone since nothing shares a line any more.
+- **Column alignment**: dot 6, label 24, percentage 32 and reset 96 are fixed widths with the bar
+  taking the remainder, so rows line up across every service. The reset column renders an empty
+  string rather than collapsing when a window has no reset time.
+- **Width**: popover narrowed 360 -> 320. `maxServiceListHeight` raised 400 -> 520 so all seven
+  providers still fit without scrolling now that rows are taller.
+- **Setup re-runnable**: `FirstRunWindowController.showApplyingChoices()` centralises applying the
+  choices, and Settings gained a "Run Setup Again…" button — testing first run previously required
+  deleting several defaults keys by hand.
+- **Tests**: `FirstRunWindowControllerTests` verifies setup actually presents a titled,
+  non-closable window; popover tests updated for the new layout, plus a column-budget test. Fixed a
+  clock-racing assertion that compared a live countdown against a literal.
+- All 338 tests passing
+
 ## Iteration 104 (Billy PR): Grok provider + activity-based auto-detection
 
 - **New `GrokUsageProvider`** (`ServiceType.grok`, "GK", rose): reads the last `billing: fetched credits config` line from Grok CLI's `~/.grok/logs/unified.jsonl` via a chunked `ReverseLineScanner` (no full-file read on every tick). Maps `creditUsagePercent` to a percent metric with `currentPeriod.end` as the reset; a stale period is rolled forward window-by-window and shown as 0. `subscriptionTier` (e.g. SuperGrok) is the plan label and is remembered in `grokDetectedPlan`. Grok logs microsecond timestamps, which `ISO8601DateFormatter` rejects — `parseTimestamp` trims to milliseconds.

@@ -45,7 +45,6 @@ struct SettingsView: View {
     #endif
 
     @AppStorage("claudeEnabled") private var claudeEnabled = true
-    @AppStorage("claudePlan") private var claudePlan: String = ClaudePlan.autoRawValue
 
     @AppStorage("codexEnabled") private var codexEnabled = true
     @AppStorage("codexPlan") private var codexPlan: String = CodexPlan.pro.rawValue
@@ -106,7 +105,6 @@ struct SettingsView: View {
         .padding(.horizontal, SettingsLayout.contentHorizontalPadding)
         .padding(.bottom, SettingsLayout.contentBottomPadding)
         .onAppear {
-            migrateLegacyClaudePlanIfNeeded()
             migrateLegacyCursorPlanIfNeeded()
             sanitizeNotificationSoundModeIfNeeded()
             migrateLegacyCopilotManualPATIfNeeded()
@@ -236,6 +234,10 @@ struct SettingsView: View {
                 Text("Compact (Vertical) shows one colored column per agent and no labels, taking the least menu bar space. Extended (Horizontal) shows labelled rows.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Button("Run Setup Again…") {
+                    FirstRunWindowController.shared.showApplyingChoices()
+                }
             }
 
             Section("Detection") {
@@ -260,17 +262,7 @@ struct SettingsView: View {
             }
 
             providerSection(title: "Claude Code", service: .claude, isEnabled: $claudeEnabled) {
-                Picker("Plan", selection: $claudePlan) {
-                    Text("Auto (from Claude Code)").tag(ClaudePlan.autoRawValue)
-                    ForEach(ClaudePlan.allCases, id: \.rawValue) { plan in
-                        Text(plan.rawValue).tag(plan.rawValue)
-                    }
-                }
-                .onChange(of: claudePlan) { _ in
-                    notifyLimitsChanged()
-                }
-
-                Text("Auto reads the plan recorded in your Claude Code credentials; it cannot tell Max 5x from Max 20x, so pick a tier manually if you want that shown. Either way this is only the label beside \"Claude Code\" — percentages always come from the Anthropic OAuth API.")
+                Text("Usage comes from the Anthropic OAuth API, using your Claude Code credentials.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -722,15 +714,6 @@ struct SettingsView: View {
             activeTokenSaveAlert = nil
         }
         return outcome
-    }
-
-    private func migrateLegacyClaudePlanIfNeeded() {
-        if claudePlan == "Max" {
-            claudePlan = ClaudePlan.max5x.rawValue
-        }
-        if claudePlan != ClaudePlan.autoRawValue, ClaudePlan(rawValue: claudePlan) == nil {
-            claudePlan = ClaudePlan.autoRawValue
-        }
     }
 
     private func migrateLegacyCursorPlanIfNeeded() {

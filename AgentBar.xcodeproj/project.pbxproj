@@ -87,6 +87,7 @@
 		E177BF7EDA397CD808DA2201 /* InsightsViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62FD959CECADDDB535783325 /* InsightsViewTests.swift */; };
 		E2D6E436D984441A668CE21D /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE24CE6D683CB2F9886366CE /* APIClient.swift */; };
 		E5AE5B034887BAECCFCD7233 /* DateUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D7FF1A22E962E8BDB20FE18 /* DateUtils.swift */; };
+		E994FD0DC00756296980704D /* FirstRunWindowControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F80216EF23860D3028E4150F /* FirstRunWindowControllerTests.swift */; };
 		EE6E9B110B3C17566B1FCB9F /* CESPRegistryPackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4ADF31265D7CBDAC1A8DBF7 /* CESPRegistryPackTests.swift */; };
 		EE9506818B37AE7612F105AC /* LoginItemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E582C14968381B7CE3436577 /* LoginItemManager.swift */; };
 		F03216160F8D9DA627EB1B44 /* UsageHistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AE660B08EDDB5909919383 /* UsageHistoryStoreTests.swift */; };
@@ -191,6 +192,7 @@
 		F17BA952C208A2A34C428D88 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		F25F0B4399CDDB5DC57F7874 /* CESPRegistryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CESPRegistryServiceTests.swift; sourceTree = "<group>"; };
 		F5E8FE4C68C3CE713FD06DB8 /* ClaudeHookNotifyEventDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeHookNotifyEventDetectorTests.swift; sourceTree = "<group>"; };
+		F80216EF23860D3028E4150F /* FirstRunWindowControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunWindowControllerTests.swift; sourceTree = "<group>"; };
 		FC7AEC81578ED1FF03C231A5 /* CESPRegistryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CESPRegistryService.swift; sourceTree = "<group>"; };
 		FCCC943FDF80266E8F2A5F64 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		FD338483596A8EB576FF99F4 /* InsightsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsWindowController.swift; sourceTree = "<group>"; };
@@ -427,6 +429,7 @@
 				04C1E41FDB05FE948BD0482C /* DateUtilsTests.swift */,
 				46C159E0C80DB514BBF986E6 /* DetailPopoverViewTests.swift */,
 				261FDC3F9166D674D7BA881C /* FirstRunSettingsTests.swift */,
+				F80216EF23860D3028E4150F /* FirstRunWindowControllerTests.swift */,
 				E99B80581710AF2E633CAF8E /* GeminiUsageProviderTests.swift */,
 				C0FBFF81E94180BF700184E7 /* GrokUsageProviderTests.swift */,
 				62FD959CECADDDB535783325 /* InsightsViewTests.swift */,
@@ -577,6 +580,7 @@
 				38CE09D9014E986F75D0B8AA /* DateUtilsTests.swift in Sources */,
 				F170BA5EC5D011596BD52DCF /* DetailPopoverViewTests.swift in Sources */,
 				54F4EE8CBF87ACB9BA44D534 /* FirstRunSettingsTests.swift in Sources */,
+				E994FD0DC00756296980704D /* FirstRunWindowControllerTests.swift in Sources */,
 				E0F0A0C56AAC3098981FB89C /* GeminiUsageProviderTests.swift in Sources */,
 				E14799C5C3AD684E993E782C /* GrokUsageProviderTests.swift in Sources */,
 				E177BF7EDA397CD808DA2201 /* InsightsViewTests.swift in Sources */,

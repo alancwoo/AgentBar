@@ -24,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notifyMonitor.start()
 
         if needsFirstRun {
-            presentFirstRunSetup()
+            FirstRunWindowController.shared.showApplyingChoices()
         } else {
             registerLoginItemIfNeeded()
         }
@@ -32,15 +32,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-    }
-
-    private func presentFirstRunSetup() {
-        FirstRunWindowController.shared.show { selection in
-            FirstRunSettings.apply(selection)
-            try? LoginItemManager.setEnabled(selection.launchAtLogin)
-            NotificationCenter.default.post(name: .statusBarAppearanceChanged, object: nil)
-            NotificationCenter.default.post(name: .limitsChanged, object: nil)
-        }
     }
 
     /// Terminate this instance if another copy is already running.

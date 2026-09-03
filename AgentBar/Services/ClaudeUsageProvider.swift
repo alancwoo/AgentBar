@@ -126,7 +126,7 @@ final class ClaudeUsageProvider: UsageProviderProtocol, @unchecked Sendable {
     }
 
     private func resolvedPlanName() -> String? {
-        Self.resolvedPlanName(defaults: defaults, detectedPlan: detectedPlanProvider)
+        detectedPlanProvider()
     }
 
     func isConfigured() async -> Bool {
@@ -325,18 +325,6 @@ final class ClaudeUsageProvider: UsageProviderProtocol, @unchecked Sendable {
         return subscriptionType.flatMap { ClaudePlan.displayName(forSubscriptionType: $0) }
     }
 
-    /// Resolves the label shown beside "Claude Code": the detected plan while
-    /// the setting is on Auto, otherwise the manually chosen plan.
-    static func resolvedPlanName(
-        defaults: UserDefaults,
-        detectedPlan: () -> String?
-    ) -> String? {
-        let stored = defaults.string(forKey: "claudePlan") ?? ClaudePlan.autoRawValue
-        guard stored != ClaudePlan.autoRawValue else {
-            return detectedPlan()
-        }
-        return ClaudePlan(rawValue: stored)?.rawValue ?? ClaudePlan.pro.rawValue
-    }
 
     static func resetTokenCache() {
         tokenCacheLock.lock()
