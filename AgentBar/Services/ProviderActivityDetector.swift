@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 
 /// What the detector learned about one service on this Mac.
 struct ProviderActivity: Sendable, Equatable {
@@ -81,6 +82,32 @@ struct ProviderActivityDetector: Sendable {
             )
         }
 
+        // Cursor writes its state database on every launch, so file dates only
+        // prove the app was opened. Real use is a chat with at least one message.
+        if service == .cursor {
+            let dbURL = homeDirectory.appendingPathComponent(Self.cursorStateDBPath)
+            switch Self.cursorLastChatActivity(dbPath: dbURL.path) {
+            case .noDatabase:
+                return ProviderActivity(service: service, lastActivity: nil, evidence: nil, isActive: false)
+            case .noChats:
+                return ProviderActivity(
+                    service: service,
+                    lastActivity: Self.newestModification(at: dbURL, depth: 0),
+                    evidence: "~/" + Self.cursorStateDBPath + " (no chats)",
+                    isActive: false
+                )
+            case .lastChat(let date):
+                return ProviderActivity(
+                    service: service,
+                    lastActivity: date,
+                    evidence: "Cursor chat history",
+                    isActive: now.timeIntervalSince(date) <= activityWindow
+                )
+            case .unavailable:
+                break // schema changed or DB locked: fall through to file dates
+            }
+        }
+
         var newest: (date: Date, path: String)?
         for probe in Self.probes(for: service) {
             let url = homeDirectory.appendingPathComponent(probe.path)
@@ -127,9 +154,9 @@ struct ProviderActivityDetector: Sendable {
                 Probe(path: "Library/Application Support/Code/User/globalStorage/github.copilot-chat", depth: 1),
             ]
         case .cursor:
+            // Fallback only; see cursorLastChatActivity.
             return [
-                Probe(path: "Library/Application Support/Cursor/User/globalStorage/state.vscdb", depth: 0),
-                Probe(path: "Library/Application Support/Cursor/logs", depth: 1),
+                Probe(path: cursorStateDBPath, depth: 0),
             ]
         case .opencode:
             return [
@@ -177,6 +204,50 @@ struct ProviderActivityDetector: Sendable {
             }
         }
         return newest
+    }
+
+    // MARK: - Cursor chat history
+
+    static let cursorStateDBPath = "Library/Application Support/Cursor/User/globalStorage/state.vscdb"
+
+    enum CursorChatActivity: Equatable {
+        case noDatabase
+        case unavailable
+        case noChats
+        case lastChat(Date)
+    }
+
+    /// Newest `lastUpdatedAt` among Cursor composers that hold at least one
+    /// message. Cursor keeps them in `cursorDiskKV` under `composerData:<id>`
+    /// as JSON; `fullConversationHeadersOnly` is empty for the placeholder
+    /// chat Cursor opens on launch.
+    static func cursorLastChatActivity(dbPath: String) -> CursorChatActivity {
+        guard FileManager.default.fileExists(atPath: dbPath) else { return .noDatabase }
+
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let db else {
+            return .unavailable
+        }
+        defer { sqlite3_close(db) }
+
+        let query = """
+            SELECT MAX(json_extract(value, '$.lastUpdatedAt'))
+            FROM cursorDiskKV
+            WHERE key LIKE 'composerData:%'
+              AND json_array_length(json_extract(value, '$.fullConversationHeadersOnly')) > 0
+            """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK, let stmt else {
+            return .unavailable
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return .unavailable }
+        guard sqlite3_column_type(stmt, 0) != SQLITE_NULL else { return .noChats }
+
+        let millis = sqlite3_column_double(stmt, 0)
+        guard millis > 0 else { return .noChats }
+        return .lastChat(Date(timeIntervalSince1970: millis / 1000))
     }
 
     private static func modificationDate(of url: URL) -> Date? {

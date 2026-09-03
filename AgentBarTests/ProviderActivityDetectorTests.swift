@@ -1,4 +1,5 @@
 import XCTest
+import SQLite3
 @testable import AgentBar
 
 final class ProviderActivityDetectorTests: XCTestCase {
@@ -131,5 +132,78 @@ final class ProviderActivityDetectorTests: XCTestCase {
 
         monitor.invalidate()
         XCTAssertEqual(monitor.activeServices(now: now), [.grok])
+    }
+
+    // MARK: - Cursor
+
+    /// Builds a minimal Cursor state.vscdb with the given composers.
+    private func writeCursorDB(composers: [(updatedAt: Date, messageCount: Int)]) throws {
+        let url = home.appendingPathComponent(ProviderActivityDetector.cursorStateDBPath)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(url.path, &db), SQLITE_OK)
+        defer { sqlite3_close(db) }
+
+        XCTAssertEqual(sqlite3_exec(db, "CREATE TABLE cursorDiskKV (key TEXT PRIMARY KEY, value BLOB)", nil, nil, nil), SQLITE_OK)
+        for (index, composer) in composers.enumerated() {
+            let headers = Array(repeating: #"{"bubbleId":"b","type":1}"#, count: composer.messageCount).joined(separator: ",")
+            let millis = Int(composer.updatedAt.timeIntervalSince1970 * 1000)
+            let json = #"{"composerId":"c\#(index)","createdAt":\#(millis),"lastUpdatedAt":\#(millis),"fullConversationHeadersOnly":[\#(headers)]}"#
+            let sql = "INSERT INTO cursorDiskKV VALUES ('composerData:c\(index)', '\(json)')"
+            XCTAssertEqual(sqlite3_exec(db, sql, nil, nil, nil), SQLITE_OK)
+        }
+        XCTAssertEqual(sqlite3_exec(db, "INSERT INTO cursorDiskKV VALUES ('bubbleId:x', '{}')", nil, nil, nil), SQLITE_OK)
+    }
+
+    func testCursorLaunchWithoutChatsIsNotActivity() throws {
+        // Cursor opens an empty composer on every launch; that must not count.
+        try writeCursorDB(composers: [
+            (updatedAt: now.addingTimeInterval(-3600), messageCount: 0),
+            (updatedAt: now.addingTimeInterval(-150 * 86_400), messageCount: 12),
+        ])
+
+        let activity = makeDetector().detect(.cursor)
+
+        XCTAssertFalse(activity.isActive)
+        XCTAssertEqual(activity.evidence, "Cursor chat history")
+        XCTAssertEqual(activity.lastActivity!.timeIntervalSince(now), -150 * 86_400, accuracy: 1)
+    }
+
+    func testCursorRecentChatIsActive() throws {
+        try writeCursorDB(composers: [
+            (updatedAt: now.addingTimeInterval(-2 * 86_400), messageCount: 3),
+        ])
+
+        let activity = makeDetector().detect(.cursor)
+
+        XCTAssertTrue(activity.isActive)
+        XCTAssertEqual(activity.lastActivity!.timeIntervalSince(now), -2 * 86_400, accuracy: 1)
+    }
+
+    func testCursorDatabaseWithoutAnyChatsIsInactive() throws {
+        try writeCursorDB(composers: [(updatedAt: now, messageCount: 0)])
+        let activity = makeDetector().detect(.cursor)
+        XCTAssertFalse(activity.isActive)
+        XCTAssertNotNil(activity.lastActivity, "The DB itself is reported so Settings can say it exists but holds no chats.")
+    }
+
+    func testCursorMissingDatabaseIsNotDetected() {
+        XCTAssertFalse(makeDetector().detect(.cursor).isActive)
+        XCTAssertEqual(ProviderActivityDetector.cursorLastChatActivity(dbPath: "/nonexistent/state.vscdb"), .noDatabase)
+    }
+
+    func testCursorUnknownSchemaFallsBackToFileDate() throws {
+        let url = home.appendingPathComponent(ProviderActivityDetector.cursorStateDBPath)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(url.path, &db), SQLITE_OK)
+        XCTAssertEqual(sqlite3_exec(db, "CREATE TABLE ItemTable (key TEXT, value BLOB)", nil, nil, nil), SQLITE_OK)
+        sqlite3_close(db)
+        try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-86_400)], ofItemAtPath: url.path)
+
+        XCTAssertEqual(ProviderActivityDetector.cursorLastChatActivity(dbPath: url.path), .unavailable)
+        let activity = makeDetector().detect(.cursor)
+        XCTAssertTrue(activity.isActive, "Without the expected schema, fall back to the file date rather than hiding Cursor forever.")
     }
 }
