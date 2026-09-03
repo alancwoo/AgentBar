@@ -15,6 +15,11 @@ enum NotificationSoundMode: String, CaseIterable, Sendable {
     }
 }
 
+enum AboutLinks {
+    static let fork = URL(string: "https://github.com/alancwoo/AgentBar")!
+    static let upstream = URL(string: "https://github.com/scari/AgentBar")!
+}
+
 enum CopilotCredentialSettings {
     /// Enables Keychain fallback for Copilot when gh CLI token is unavailable.
     static let manualPATEnabledKey = "copilotManualPATEnabled"

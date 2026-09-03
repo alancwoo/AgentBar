@@ -2,6 +2,26 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 106: Status-page health badges, About links, Buy me a Coffee removed
+- **Service health**: new `ServiceStatusMonitor` actor polls each service's Statuspage.io
+  `/api/v2/components.json`, cached five minutes per page, and maps the worst matching component
+  onto `ServiceHealth` (OK / Maintenance / Degraded / Partial Outage / Major Outage).
+  `StatusPageRegistry` covers Claude Code (status.claude.com, "Claude Code" component), Codex
+  (status.openai.com, any "Codex" component), Copilot (githubstatus, any "Copilot" component)
+  and Cursor (status.cursor.com, IDE + CLI). Gemini, Grok and Z.ai expose no Statuspage endpoint
+  and get no badge. Verified against live incidents on all four pages.
+- **Badge**: `ServiceHealthBadge` sits right-aligned on the service header, coloured by severity,
+  and opens the status page on click. `UsageViewModel.serviceHealth` is refreshed after each usage
+  fetch through an injectable `ServiceStatusMonitoring`.
+- **Buy me a Coffee removed** from the popover footer, along with `openExternalURL`,
+  `bmcSupportURL` and the DEBUG trigger; the README keeps only the GitHub Sponsor link to the
+  original author.
+- **About section** at the bottom of Settings → Usage: version plus links to this fork and to
+  scari's original (`AboutLinks`).
+- **Tests added**: `ServiceStatusMonitorTests` (8) — Statuspage mapping, worst-of aggregation with
+  real captured component lists, exact vs contains matching, TTL caching, view model publication
+- All 372 tests passing
+
 ## Iteration 105: One row per usage window, Claude plan setting removed
 - **Claude plan setting removed**: the picker and its caption are gone from Settings, along with
   `claudePlan` storage, `ClaudePlan.autoRawValue`, `migrateLegacyClaudePlanIfNeeded` and

@@ -19,19 +19,12 @@ struct DetailPopoverView: View {
     @ObservedObject var viewModel: UsageViewModel
     @StateObject private var listHeightModel = ServiceListHeightModel()
     @State private var isHoveringRefresh = false
-    private let openExternalURL: (URL) -> Void
     private var displayUsageData: [UsageData] {
         Self.sortedForDisplay(viewModel.usageData)
     }
 
-    init(
-        viewModel: UsageViewModel,
-        openExternalURL: @escaping (URL) -> Void = { url in
-            NSWorkspace.shared.open(url)
-        }
-    ) {
+    init(viewModel: UsageViewModel) {
         self.viewModel = viewModel
-        self.openExternalURL = openExternalURL
     }
 
     var body: some View {
@@ -134,18 +127,9 @@ struct DetailPopoverView: View {
     }
 
     private var buildRow: some View {
-        HStack(spacing: 6) {
-            Text("AgentBar \(Self.versionString)")
-            Spacer(minLength: 8)
-            Button(action: openBMC) {
-                Text("Buy me a Coffee")
-                    .underline()
-            }
-            .buttonStyle(.plain)
-            .help("Support AgentBar")
-        }
-        .font(.caption2)
-        .foregroundStyle(.tertiary)
+        Text("AgentBar \(Self.versionString)")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
     }
 
     private func actionButton(
@@ -171,7 +155,7 @@ struct DetailPopoverView: View {
     private var serviceRows: some View {
         VStack(alignment: .leading, spacing: Self.serviceRowSpacing) {
             ForEach(displayUsageData) { data in
-                ServiceDetailRow(data: data)
+                ServiceDetailRow(data: data, health: viewModel.serviceHealth[data.service])
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -260,12 +244,6 @@ struct DetailPopoverView: View {
         NSApp.terminate(nil)
     }
 
-    private func openBMC() {
-        openExternalURL(Self.bmcSupportURL)
-    }
-
-    private static let bmcSupportURL = URL(string: "https://buymeacoffee.com/_scari")!
-
     static func sortedForDisplay(_ usageData: [UsageData]) -> [UsageData] {
         let serviceOrder: [ServiceType] = [.claude, .codex, .gemini, .copilot, .cursor, .grok, .opencode, .zai]
         return usageData.sorted { lhs, rhs in
@@ -280,12 +258,6 @@ struct DetailPopoverView: View {
             return lhsRank < rhsRank
         }
     }
-
-    #if DEBUG
-    func triggerBMCForTesting() {
-        openBMC()
-    }
-    #endif
 
     static func resolvedVersionString(from info: [String: Any]?) -> String {
         if let tag = normalizedString(info?["GitVersionTag"] as? String) {
@@ -307,7 +279,7 @@ struct DetailPopoverView: View {
         return value
     }
 
-    private static let versionString = resolvedVersionString(from: Bundle.main.infoDictionary)
+    static let versionString = resolvedVersionString(from: Bundle.main.infoDictionary)
 
     private func relativeTimeString(now: Date = Date()) -> String {
         guard let latest = viewModel.usageData.map(\.lastUpdated).max() else {
@@ -322,6 +294,7 @@ struct DetailPopoverView: View {
 
 struct ServiceDetailRow: View {
     let data: UsageData
+    var health: ServiceHealth? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -333,7 +306,10 @@ struct ServiceDetailRow: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
+                if let health {
+                    ServiceHealthBadge(health: health, service: data.service)
+                }
             }
 
             // One line per usage window, in fixed columns so every service
@@ -407,6 +383,37 @@ struct ActionIconButton: View {
             isHovering = hovering
         }
         .help(help)
+    }
+}
+
+/// Status-page health, right-aligned on the service header. Click to open the
+/// page itself.
+struct ServiceHealthBadge: View {
+    let health: ServiceHealth
+    let service: ServiceType
+
+    var body: some View {
+        Button {
+            if let url = StatusPageRegistry.source(for: service)?.pageURL {
+                NSWorkspace.shared.open(url)
+            }
+        } label: {
+            Text(health.label)
+                .font(.caption2)
+                .foregroundStyle(Self.color(for: health))
+        }
+        .buttonStyle(.plain)
+        .help("\(service.rawValue) status: \(health.label). Click to open the status page.")
+    }
+
+    static func color(for health: ServiceHealth) -> Color {
+        switch health {
+        case .operational: return .green
+        case .maintenance: return .blue
+        case .degraded: return .yellow
+        case .partialOutage: return .orange
+        case .majorOutage: return .red
+        }
     }
 }
 

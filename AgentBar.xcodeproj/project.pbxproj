@@ -22,6 +22,7 @@
 		2647898AD5D730912767B120 /* PopoverControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A993FA9B6D634CC62C5AEEDA /* PopoverControllerTests.swift */; };
 		2CE47C94D79C1811FC55FBC7 /* CESPRegistryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC7AEC81578ED1FF03C231A5 /* CESPRegistryService.swift */; };
 		2DC522146728304F3839E9C6 /* CESPRegistryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25F0B4399CDDB5DC57F7874 /* CESPRegistryServiceTests.swift */; };
+		34B59495F29C10886BEDFBA0 /* ServiceStatusMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DAD4C8356B2D4CF89151267 /* ServiceStatusMonitorTests.swift */; };
 		3593777C02A34F30852F58E7 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBBF5565210D0FC42D91542B /* InsightsView.swift */; };
 		35B32C5044F29686750F36E8 /* AgentHookConfigurationChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6097B9B3E012839E15FF7E0A /* AgentHookConfigurationChecker.swift */; };
 		3761D447CE922B92BC1E820C /* JSONLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B96865FEB478446EB8EBD2A /* JSONLParserTests.swift */; };
@@ -69,6 +70,7 @@
 		AE14A083E789364044DDDBB4 /* SoundPackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D063BCD6702BDBAC26821BE /* SoundPackViewModel.swift */; };
 		B0B409FBDD0FA8087C54774D /* libsqlite3.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = F17BA952C208A2A34C428D88 /* libsqlite3.tbd */; };
 		B6914F1BDBD0282CF2FBA0E3 /* AgentNotifyEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A8959B82D8511470A7DBFC /* AgentNotifyEvent.swift */; };
+		B74DD7E39CF7346E0955DF0A /* ServiceStatusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EA3F1F1936C77C1DCA1BE3 /* ServiceStatusMonitor.swift */; };
 		B76250CE8900A1026B63AB92 /* AgentBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8259B8727B73CB3C81B552FC /* AgentBarApp.swift */; };
 		B80C752B92E86365DAFCA9A7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9DEB166D42438C7DCE3A222A /* Assets.xcassets */; };
 		B8E80F1E142B0D7458A44A4E /* CopilotUsageProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A93A21D3C3B9F178B46F77 /* CopilotUsageProviderTests.swift */; };
@@ -114,6 +116,7 @@
 		04C1E41FDB05FE948BD0482C /* DateUtilsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateUtilsTests.swift; sourceTree = "<group>"; };
 		0644E2AEB0A4FAE6247944CC /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
 		0CCCEAB47D628BD98A55A1A5 /* FirstRunView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunView.swift; sourceTree = "<group>"; };
+		0DAD4C8356B2D4CF89151267 /* ServiceStatusMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatusMonitorTests.swift; sourceTree = "<group>"; };
 		1A8845F623C5CDA4797C2458 /* StackedBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StackedBarView.swift; sourceTree = "<group>"; };
 		1AC6B625FC95A01761E9033B /* CursorUsageProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CursorUsageProviderTests.swift; sourceTree = "<group>"; };
 		1C8199F37BC8BA7C8EEC2B83 /* UsageViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageViewModel.swift; sourceTree = "<group>"; };
@@ -121,6 +124,7 @@
 		261FDC3F9166D674D7BA881C /* FirstRunSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunSettingsTests.swift; sourceTree = "<group>"; };
 		3018DAE2F5608489E6507B68 /* ZaiUsageProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZaiUsageProviderTests.swift; sourceTree = "<group>"; };
 		385332CCF14C0EA15933B029 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		39EA3F1F1936C77C1DCA1BE3 /* ServiceStatusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatusMonitor.swift; sourceTree = "<group>"; };
 		3CACABC16CB1546B3A6BE16C /* NotifySoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotifySoundManager.swift; sourceTree = "<group>"; };
 		3E13364F71D89961DEF607D2 /* AgentNotifyEventDetectorProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentNotifyEventDetectorProtocol.swift; sourceTree = "<group>"; };
 		46C159E0C80DB514BBF986E6 /* DetailPopoverViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailPopoverViewTests.swift; sourceTree = "<group>"; };
@@ -275,6 +279,7 @@
 				6992AA8505D71EC3A51E135A /* GeminiUsageProvider.swift */,
 				E529DA31632E8A75454E5155 /* GrokUsageProvider.swift */,
 				B94829C4FBF0617DC66DE1C0 /* ProviderActivityDetector.swift */,
+				39EA3F1F1936C77C1DCA1BE3 /* ServiceStatusMonitor.swift */,
 				6C5EA30148527620F8F736B8 /* UsageProviderProtocol.swift */,
 				02C1EA9FB777E8FB417FBF2F /* ZaiUsageProvider.swift */,
 			);
@@ -438,6 +443,7 @@
 				48FC8B202CA33D689860FAE5 /* NotifySoundManagerTests.swift */,
 				A993FA9B6D634CC62C5AEEDA /* PopoverControllerTests.swift */,
 				BE92DB8493CA8551162CB933 /* ProviderActivityDetectorTests.swift */,
+				0DAD4C8356B2D4CF89151267 /* ServiceStatusMonitorTests.swift */,
 				7D821B3E5B0F34B5A9874195 /* SettingsViewBehaviorTests.swift */,
 				BF5E7A3893D0A53F681B0E85 /* SettingsWindowControllerTests.swift */,
 				0353E2F277B46CF17AB89720 /* SoundPackViewModelTests.swift */,
@@ -590,6 +596,7 @@
 				78B55F10346A71DE9B455590 /* NotifySoundManagerTests.swift in Sources */,
 				2647898AD5D730912767B120 /* PopoverControllerTests.swift in Sources */,
 				678E3A5A5AE13BA52C1DAC83 /* ProviderActivityDetectorTests.swift in Sources */,
+				34B59495F29C10886BEDFBA0 /* ServiceStatusMonitorTests.swift in Sources */,
 				59ED40FB3FD9167894298625 /* SettingsViewBehaviorTests.swift in Sources */,
 				D2E3334B45F6DBA47596A1E9 /* SettingsWindowControllerTests.swift in Sources */,
 				55C805250B707EAC50F56AF1 /* SoundPackViewModelTests.swift in Sources */,
@@ -641,6 +648,7 @@
 				3EB7983C4CE520C1C2470EC1 /* NotifySoundManager.swift in Sources */,
 				C47175517E15A6B53B952DB5 /* PopoverController.swift in Sources */,
 				C27D331D7F68CABC0213F033 /* ProviderActivityDetector.swift in Sources */,
+				B74DD7E39CF7346E0955DF0A /* ServiceStatusMonitor.swift in Sources */,
 				9F715218F083553B1EB11F19 /* ServiceType.swift in Sources */,
 				8D783D75FE09CB5A1ACADFC8 /* SettingsView.swift in Sources */,
 				19A32F993FE669E27F658B12 /* SettingsWindowController.swift in Sources */,

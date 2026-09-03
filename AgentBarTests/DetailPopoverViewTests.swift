@@ -116,22 +116,6 @@ final class DetailPopoverViewTests: XCTestCase {
         )
     }
 
-    func testBuyMeACoffeeActionOpensExpectedURL() {
-        let viewModel = UsageViewModel(providers: [])
-        var openedURLs: [URL] = []
-
-        let view = DetailPopoverView(viewModel: viewModel) { url in
-            openedURLs.append(url)
-        }
-        view.triggerBMCForTesting()
-
-        XCTAssertEqual(
-            openedURLs.first?.absoluteString,
-            "https://buymeacoffee.com/_scari",
-            "Expected tapping Buy Me a Coffee to attempt opening the BMC support URL."
-        )
-    }
-
     func testSortedForDisplayOrdersByHighestUsageDescending() {
         let input = [
             UsageData.mock(service: .claude, fiveHourPct: 0.20, weeklyPct: 0.40),
@@ -408,10 +392,9 @@ final class DetailPopoverViewTests: XCTestCase {
     }
 
     private func renderPopover(
-        viewModel: UsageViewModel,
-        openExternalURL: @escaping (URL) -> Void = { _ in }
+        viewModel: UsageViewModel
     ) -> (window: NSWindow, hostingView: NSHostingView<DetailPopoverView>) {
-        let rootView = DetailPopoverView(viewModel: viewModel, openExternalURL: openExternalURL)
+        let rootView = DetailPopoverView(viewModel: viewModel)
         let hostingView = NSHostingView(rootView: rootView)
         let frame = NSRect(x: 0, y: 0, width: DetailPopoverView.popoverWidth, height: 700)
         hostingView.frame = frame

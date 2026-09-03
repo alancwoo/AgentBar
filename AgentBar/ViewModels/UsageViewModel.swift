@@ -6,6 +6,9 @@ final class UsageViewModel: ObservableObject {
     @Published var usageData: [UsageData] = []
     @Published var lastError: String?
     @Published var isLoading: Bool = false
+    /// Latest status-page health per service; absent when the service has no
+    /// status page or it could not be reached.
+    @Published var serviceHealth: [ServiceType: ServiceHealth] = [:]
 
     private static let serviceOrder: [ServiceType] = [
         .claude, .codex, .gemini, .copilot, .cursor, .grok, .opencode, .zai
@@ -16,6 +19,7 @@ final class UsageViewModel: ObservableObject {
     /// Filters providers down to tools actually used on this Mac. nil disables
     /// filtering (tests inject their own providers and expect all of them).
     private let activityMonitor: ProviderActivityMonitor?
+    private let statusMonitor: any ServiceStatusMonitoring
     private let refreshInterval: TimeInterval
     private var timerCancellable: AnyCancellable?
     private var limitsCancellable: AnyCancellable?
@@ -23,11 +27,13 @@ final class UsageViewModel: ObservableObject {
         providers: [any UsageProviderProtocol]? = nil,
         refreshInterval: TimeInterval = 60,
         historyStore: UsageHistoryStoreProtocol = UsageHistoryStore(),
-        activityMonitor: ProviderActivityMonitor? = nil
+        activityMonitor: ProviderActivityMonitor? = nil,
+        statusMonitor: any ServiceStatusMonitoring = ServiceStatusMonitor()
     ) {
         self.refreshInterval = refreshInterval
         self.providers = providers ?? Self.buildProviders()
         self.historyStore = historyStore
+        self.statusMonitor = statusMonitor
         self.activityMonitor = activityMonitor ?? (providers == nil ? ProviderActivityMonitor() : nil)
 
         if providers == nil {
@@ -108,6 +114,7 @@ final class UsageViewModel: ObservableObject {
         }
 
         usageData = results
+        serviceHealth = await statusMonitor.health(for: results.map(\.service))
         if results.isEmpty {
             lastError = activeServices != nil && !providers.isEmpty
                 ? "No recently used AI tools detected"

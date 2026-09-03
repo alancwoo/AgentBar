@@ -419,6 +419,11 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("About") {
+                LabeledContent("Version", value: DetailPopoverView.versionString)
+                Link("This fork on GitHub", destination: AboutLinks.fork)
+                Link("Original project by scari", destination: AboutLinks.upstream)
+            }
         }
         .formStyle(.grouped)
     }
