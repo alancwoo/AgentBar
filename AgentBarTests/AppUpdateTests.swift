@@ -104,6 +104,38 @@ final class AppUpdateTests: XCTestCase {
     }
 
     @MainActor
+    func testStatusRowReportsUpToDateOnlyAfterASuccessfulCheck() async {
+        let newer = AppRelease(
+            tag: "v0.8-fork", version: AppVersion(tag: "v0.8-fork")!,
+            pageURL: URL(string: "https://x")!, dmgURL: URL(string: "https://x/a.dmg")!, publishedAt: nil
+        )
+        let fresh = AppUpdateController(checker: StubChecker(release: newer), currentTag: "v0.8-fork")
+        XCTAssertNil(UpdateStatusRow.text(for: fresh), "Nothing to say before the first check.")
+
+        await fresh.checkNow()
+        XCTAssertTrue(UpdateStatusRow.text(for: fresh)?.hasPrefix("You're up to date") ?? false)
+        XCTAssertFalse(fresh.lastCheckFailed)
+
+        let outdated = AppUpdateController(checker: StubChecker(release: newer), currentTag: "v0.7-fork")
+        await outdated.checkNow()
+        XCTAssertEqual(UpdateStatusRow.text(for: outdated), "v0.8-fork is available")
+    }
+
+    @MainActor
+    func testStatusRowSaysWhenGitHubWasUnreachable() async {
+        let controller = AppUpdateController(checker: FailingChecker(), currentTag: "v0.8-fork")
+        await controller.checkNow()
+
+        XCTAssertTrue(controller.lastCheckFailed)
+        XCTAssertEqual(controller.state, .idle)
+        XCTAssertEqual(
+            UpdateStatusRow.text(for: controller),
+            "Couldn't reach GitHub to check for updates.",
+            "A failed check must not masquerade as up to date."
+        )
+    }
+
+    @MainActor
     func testBannerTextPerState() {
         let release = AppRelease(
             tag: "v0.8-fork", version: AppVersion(tag: "v0.8-fork")!,
@@ -114,6 +146,10 @@ final class AppUpdateTests: XCTestCase {
         XCTAssertTrue(UpdateBanner.text(for: .failed(release, "boom")).contains("boom"))
         XCTAssertEqual(UpdateBanner.text(for: .idle), "")
     }
+}
+
+private struct FailingChecker: AppUpdateChecking {
+    func latestRelease() async throws -> AppRelease? { throw APIError.invalidResponse }
 }
 
 private struct StubChecker: AppUpdateChecking {

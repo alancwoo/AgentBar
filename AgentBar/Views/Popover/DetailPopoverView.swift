@@ -426,6 +426,66 @@ struct UpdateBanner: View {
     }
 }
 
+/// Outcome of the last update check, for Settings → About. Shows nothing
+/// until a check has run; offers Install right there when one is available.
+struct UpdateStatusRow: View {
+    @ObservedObject var controller: AppUpdateController
+
+    var body: some View {
+        if let text = Self.text(for: controller) {
+            HStack(spacing: 8) {
+                if controller.isChecking {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if case .available = controller.state {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundStyle(Color.accentColor)
+                }
+                Text(text)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Spacer()
+                switch controller.state {
+                case .available:
+                    Button("Install") { controller.install() }
+                case .failed:
+                    Button("Retry") { controller.install() }
+                    Button("Open page") { controller.openReleasePage() }
+                case .downloading, .installing:
+                    ProgressView()
+                        .controlSize(.small)
+                case .idle:
+                    EmptyView()
+                }
+            }
+            .font(.callout)
+        }
+    }
+
+    static func text(for controller: AppUpdateController) -> String? {
+        if controller.isChecking { return "Checking…" }
+        switch controller.state {
+        case .available(let release): return "\(release.tag) is available"
+        case .downloading(let release): return "Downloading \(release.tag)…"
+        case .installing(let release): return "Installing \(release.tag), relaunching…"
+        case .failed(_, let message): return "Update failed: \(message)"
+        case .idle:
+            guard let checked = controller.lastCheckedAt else { return nil }
+            if controller.lastCheckFailed {
+                return "Couldn't reach GitHub to check for updates."
+            }
+            return "You're up to date · checked \(Self.relative(checked))"
+        }
+    }
+
+    static func relative(_ date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        if interval < 60 { return "just now" }
+        if interval < 3600 { return "\(Int(interval / 60))m ago" }
+        return "\(Int(interval / 3600))h ago"
+    }
+}
+
 /// Status-page health, right-aligned on the service header. Click to open the
 /// page itself.
 struct ServiceHealthBadge: View {

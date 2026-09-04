@@ -20,6 +20,10 @@ final class AppUpdateController: ObservableObject {
 
     @Published private(set) var state: AppUpdateState = .idle
     @Published private(set) var lastCheckedAt: Date?
+    @Published private(set) var isChecking = false
+    /// Set when the last check could not reach GitHub, so a manual check can
+    /// say so instead of silently reporting "up to date".
+    @Published private(set) var lastCheckFailed = false
 
     private let checker: any AppUpdateChecking
     private let currentTag: String?
@@ -49,8 +53,21 @@ final class AppUpdateController: ObservableObject {
     }
 
     func checkNow() async {
-        lastCheckedAt = Date()
-        guard let release = try? await checker.latestRelease() else { return }
+        isChecking = true
+        defer {
+            isChecking = false
+            lastCheckedAt = Date()
+        }
+
+        let release: AppRelease?
+        do {
+            release = try await checker.latestRelease()
+            lastCheckFailed = false
+        } catch {
+            lastCheckFailed = true
+            return
+        }
+
         // Don't clobber an install that is in flight.
         switch state {
         case .downloading, .installing:
@@ -58,7 +75,11 @@ final class AppUpdateController: ObservableObject {
         default:
             break
         }
-        state = AppUpdateChecker.isNewer(release, than: currentTag) ? .available(release) : .idle
+        if let release, AppUpdateChecker.isNewer(release, than: currentTag) {
+            state = .available(release)
+        } else {
+            state = .idle
+        }
     }
 
     func install() {

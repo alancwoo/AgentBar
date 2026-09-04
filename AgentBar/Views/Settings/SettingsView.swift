@@ -80,6 +80,7 @@ struct SettingsView: View {
     @State private var hasSavedZaiAPIKey = false
     @State private var hookConfigurationStatus: AgentHookConfigurationStatus = .unknown
     @State private var activeTokenSaveAlert: TokenSaveAlert?
+    @ObservedObject private var updates = AppUpdateController.shared
     private let keychainSaveAction: @Sendable (String, String) throws -> Void
 
     init(
@@ -412,7 +413,19 @@ struct SettingsView: View {
             }
 
             Section("About") {
-                LabeledContent("Version", value: DetailPopoverView.versionString)
+                HStack {
+                    Text("Version")
+                    Spacer()
+                    Text(DetailPopoverView.versionString)
+                        .foregroundStyle(.secondary)
+                    Button("Check for Updates") {
+                        Task { await updates.checkNow() }
+                    }
+                    .disabled(updates.isChecking)
+                }
+
+                UpdateStatusRow(controller: updates)
+
                 Link("This fork on GitHub", destination: AboutLinks.fork)
                 Link("Original project by scari", destination: AboutLinks.upstream)
             }

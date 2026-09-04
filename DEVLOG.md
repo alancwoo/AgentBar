@@ -2,6 +2,17 @@
 
 > Iterations 1–69 archived in [DEVLOG-archive.md](DEVLOG-archive.md).
 
+## Iteration 111: Check for Updates in Settings → About
+- **Button**: "Check for Updates" beside the version calls `AppUpdateController.checkNow()`, which
+  now publishes `isChecking` and `lastCheckFailed` alongside `state`.
+- **`UpdateStatusRow`**: appears under the version once a check has run — "Checking…", "You're up
+  to date · checked just now", "Couldn't reach GitHub…", or "vX is available" with an inline
+  **Install** button that runs the same download/verify/swap/relaunch path as the popover banner;
+  failed installs offer Retry and Open page.
+- **Tests added**: status row wording after a successful check, an available release, and an
+  unreachable GitHub — a failed check must not read as up to date
+- All 392 tests passing
+
 ## Iteration 110: Hourglass trails the time
 - **Reset column order**: time first, right-aligned, then the hourglass with a 3pt gap — the
   glyph now sits flush at the right edge of every row rather than leading the number.
